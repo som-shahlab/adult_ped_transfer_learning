@@ -1,0 +1,6 @@
+experiments/main/data/
+experiments/main/artifacts/
+.ipynb_checkpoints/
+*.log
+experiments/main/notebooks/figures
+experiments/main/scripts/__pycache__
