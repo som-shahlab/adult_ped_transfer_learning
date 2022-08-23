@@ -1050,7 +1050,7 @@ class BQFilterInpatientCohort(BQCohort):
 		(
 			SELECT * 
 			FROM {rs_dataset_project}.{rs_dataset}.{cohort_name_labeled}
-			WHERE age_in_years >= 18.0
+			WHERE age_in_years >= {min_pat_age}
 			{filter_query}
 		)
 		"""
