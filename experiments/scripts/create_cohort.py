@@ -1,5 +1,6 @@
 import configargparse as argparse
 import pandas as pd
+import numpy as np
 import os
 from prediction_utils.cohorts.admissions.cohort import BQAdmissionRollupCohort
 from prediction_utils.cohorts.admissions.cohort import BQAdmissionOutcomeCohort
@@ -89,6 +90,12 @@ if __name__ == "__main__":
 
 	cohort_df['death_date'] = pd.to_datetime(cohort_df['death_date'])
 	print(cohort_df.dtypes)
+	
+	conditions = [cohort_df['age_group'] == '<18']
+	outputs = [0]
+	
+	cohort_df['adult_at_admission'] = np.select(conditions, outputs, 1)
+	
 	
 	cohort_path = os.path.join(args.data_path, "cohort")
 	os.makedirs(cohort_path, exist_ok=True)

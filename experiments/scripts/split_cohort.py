@@ -170,16 +170,11 @@ if __name__ == "__main__":
 		),
 		engine='pyarrow'
 	)
-	print(cohort['age_group'].unique())
 	# split cohort
 	cohort = split_cohort_by_age_group(
 		cohort,
 		args.seed
 	)
-	print(cohort.head())
-	print(cohort.query('person_id==32491163'))
-	print(cohort['age_group'].unique())
-	print(cohort(['admission_year'].unique()))
 
 	# save splitted cohort
 	cohort.to_parquet(
