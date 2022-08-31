@@ -61,18 +61,21 @@ if __name__ == "__main__":
 	
 	os.makedirs(args.target_fpath, exist_ok=True)
 	
-	df=read_file(
+	og_df=read_file(
 		os.path.join(
 			args.cohort_fpath,
 			args.cohort_fname
 		)
 	)
 
-	df=df.query("fold_id==['val','test']")[['person_id','admit_date','discharge_date', 'age_group']]
+	df=og_df.query("fold_id==['val','test']")[['person_id','admit_date','discharge_date', 'age_group', 'adult_at_admission']]
 	if args.pediatric == 1:
-		df=df.query("age_group=='<18'")
-	else:
-		df=df.query("age_group==['[18-30)', '[45-55)', '[30-45)', '[55-65)','[75-91)', '[65-75)']")
+		ad_df = og_df.query("adult_at_admission==0")[['person_id','admit_date','discharge_date', 'age_group', 'adult_at_admission']]
+		df = pd.concat([df,ad_df])
+	elif args.pediatric == 0:
+		pd_df = og_df.query("adult_at_admission==1")[['person_id','admit_date','discharge_date', 'age_group', 'adult_at_admission']]
+		df = pd.concat([df,pd_df])
+	df = df.drop_duplicates()
 	df['date']=pd.to_datetime(df['admit_date']).dt.date
 
 	# save csv

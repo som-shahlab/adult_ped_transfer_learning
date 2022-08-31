@@ -29,7 +29,7 @@ parser.add_argument(
 	nargs='+',
 	type=str ,
 	default=['hospital_mortality','LOS_7','readmission_30','icu_admission','aki1_label','aki2_label','hg_label','np_500_label','np_1000_label'],
-	help="regularization parameter C"
+	help="List of tasks to predict"
 )
 
 parser.add_argument(

@@ -89,7 +89,6 @@ if __name__ == "__main__":
 	
 
 	cohort_df['death_date'] = pd.to_datetime(cohort_df['death_date'])
-	print(cohort_df.dtypes)
 	
 	conditions = [cohort_df['age_group'] == '<18']
 	outputs = [0]
