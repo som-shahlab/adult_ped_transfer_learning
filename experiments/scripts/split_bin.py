@@ -50,10 +50,10 @@ def split_bin_array(args, bin_arr, vocab, cohort_df, age_group='pediatric'):
 	Generate splits that consist of shared features only, all adult features only and all pediatric features only.
 	Also save new vocabulary for pruned feature sets.
 	'''
-	print(f'Splitting {age_group} features...')
+	print(f'Splitting {age_group} features...\n')
 	test_df = cohort_df.query('fold_id=="test"')
-	val_df = cohort_df.query('fold_id=="eval"')
-	train_df = cohort_df.query('fold_id!="test" and fold_id!="eval"')
+	val_df = cohort_df.query('fold_id=="val"')
+	train_df = cohort_df.query('fold_id!="test" and fold_id!="val"')
 	
 	shared_feat_cols = pd.read_csv(f'{args.bin_path}/shared_feats.csv')
 	pediatric_feat_cols = pd.read_csv(f'{args.bin_path}/only_pediatric_feats.csv')
@@ -67,29 +67,26 @@ def split_bin_array(args, bin_arr, vocab, cohort_df, age_group='pediatric'):
 	shared_cols.sort()
 	
 	for split in ['train','val','test']:
-		print(split)
 		os.makedirs(f'{args.bin_path}/{age_group}/{split}', exist_ok=True)
 		if split == 'train':
 			pt_rows = list(train_df['features_row_id'])
 			print(f'# train samples: {len(pt_rows)}')
-			row_map = pd.DataFrame({f'{split}_row_idx':[i for i in range(len(pt_rows))], 'prediction_ids':list(train_df['prediction_id'])})
+			row_map = pd.DataFrame({f'{split}_row_idx':[i for i in range(len(pt_rows))], 'prediction_id':list(train_df['prediction_id'])})
 			row_map.to_csv(f'{args.bin_path}/{age_group}/{split}/train_pred_id_map.csv',index=False)
 		elif split == 'val':
 			pt_rows = list(val_df['features_row_id'])
 			print(f'# val samples: {len(pt_rows)}')
-			row_map = pd.DataFrame({f'{split}_row_idx':[i for i in range(len(pt_rows))], 'prediction_ids':list(val_df['prediction_id'])})
+			row_map = pd.DataFrame({f'{split}_row_idx':[i for i in range(len(pt_rows))], 'prediction_id':list(val_df['prediction_id'])})
 			row_map.to_csv(f'{args.bin_path}/{age_group}/{split}/val_pred_id_map.csv',index=False)
 		elif split == 'test':
 			pt_rows = list(test_df['features_row_id'])
 			print(f'# test samples: {len(pt_rows)}')
-			row_map = pd.DataFrame({f'{split}_row_idx':[i for i in range(len(pt_rows))], 'prediction_ids':list(test_df['prediction_id'])})
+			row_map = pd.DataFrame({f'{split}_row_idx':[i for i in range(len(pt_rows))], 'prediction_id':list(test_df['prediction_id'])})
 			row_map.to_csv(f'{args.bin_path}/{age_group}/{split}/test_pred_id_map.csv',index=False)
 		
 		pt_feats = slice_sparse_matrix(bin_arr, pt_rows)
 		sp.save_npz(f'{args.bin_path}/{age_group}/{split}/all_feats.npz', pt_feats)
 
-		print('Creating pruned feature sets...')
-		
 		for feat_type in ['shared', 'pediatric', 'adult']:
 			print(f'Creating {feat_type} pruned feature sets...')
 			col_list = shared_cols if feat_type == 'shared' else all_ped_cols if feat_type == 'pediatric' else all_ad_cols
@@ -97,7 +94,7 @@ def split_bin_array(args, bin_arr, vocab, cohort_df, age_group='pediatric'):
 			prune_feats, prune_vocab = prune_cols(pt_feats, shared_cols, vocab)
 			print('Saving features...')
 			sp.save_npz(f'{args.bin_path}/{age_group}/{split}/{feat_type}_feats.npz', prune_feats)
-			print('Saving vocab...')
+			print('Saving vocab...\n')
 			prune_vocab.to_parquet(f'{args.bin_path}/{age_group}/{split}/{feat_type}_feats_vocab.parquet', engine='pyarrow', index=False)
 			
 def prune_cols(feats, col_list, vocab):

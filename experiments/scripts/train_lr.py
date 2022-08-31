@@ -1,10 +1,12 @@
 import pandas as pd
 import numpy as np
+import scipy.sparse as sp
 import os
 import argparse
 import pickle
 import yaml
 from sklearn.linear_model import SGDClassifier
+from sklearn.model_selection import ParameterGrid
 
 parser=argparse.ArgumentParser()
 
@@ -56,6 +58,17 @@ parser.add_argument(
 	default='shared'
 )
 
+def read_file(filename, columns=None, **kwargs):
+	'''
+	Helper function to read parquet and csv files into DataFrame
+	'''
+	print(filename)
+	load_extension = os.path.splitext(filename)[-1]
+	if load_extension == ".parquet":
+		return pd.read_parquet(filename, columns=columns,**kwargs)
+	elif load_extension == ".csv":
+		return pd.read_csv(filename, usecols=columns, **kwargs)
+
 def load_data(args):
 	
 	cohort = read_file(
@@ -68,18 +81,16 @@ def load_data(args):
 	
 	fn = f'{args.bin_path}/{args.cohort_type}'
 	
-	pkl_file = open(f'{fn}/train/{args.feat_group}_feats.txt', 'wb')
-	train_feats = pickle.load(pkl_file)
-	pkl_file.close()
+	train_feats = sp.load_npz(f'{fn}/train/{args.feat_group}_feats.npz')
 	
 	train_rows = pd.read_csv(f'{fn}/train/train_pred_id_map.csv')
+	print(cohort.columns)
+	print(train_rows.head())
 	
 	cohort = cohort.merge(train_rows, how='left', on='prediction_id')
-	
-	pkl_file = open(f'{fn}/val/feats.txt', 'wb')
-	val_feats = pickle.load(pkl_file)
-	pkl_file.close()
-	
+	print(cohort)
+	print(Sadasd)
+	val_feats = sp.load_npz(f'{fn}/train/{args.feat_group}_feats.npz')
 	val_rows = pd.read_csv(f'{fn}/val/val_pred_id_map.csv')
 	
 	cohort = cohort.merge(val_rows, how='left', on='prediction_id')
