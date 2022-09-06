@@ -1,11 +1,11 @@
 random_state:
  - 44
 loss:
- - 'log_loss'
+ - 'log'
 penalty:
  - 'l2'
 max_iter:
- - 1000
+ - 10
 C:
 - 1.0e-06
 - 1.0e-05

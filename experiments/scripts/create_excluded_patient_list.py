@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(description='Create exclude patient list')
 parser.add_argument(
 	'--extracts_fpath', 
 	type=str,
-	default="/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/extracts/20210723",
+	default="/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/extracts/20220801",
 )
 
 parser.add_argument(

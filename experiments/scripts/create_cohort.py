@@ -10,7 +10,7 @@ from prediction_utils.util import patient_split_cv
 parser = argparse.ArgumentParser()
 
 parser.add_argument(
-    "--dataset", type=str, default="starr_omop_cdm5_deid_20211213"
+	"--dataset", type=str, default="starr_omop_cdm5_deid_2022_08_01"
 )
 parser.add_argument("--rs_dataset", type=str, default="jlemmon_explore")
 parser.add_argument("--et_dataset", type=str, default="jlemmon_explore")

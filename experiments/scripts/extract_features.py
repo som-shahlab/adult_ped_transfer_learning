@@ -23,7 +23,7 @@ parser.add_argument("--gcloud_project", type=str, default="som-nero-nigam-starr"
 parser.add_argument("--dataset_project", type=str, default="som-nero-nigam-starr")
 parser.add_argument("--rs_dataset_project", type=str, default="som-nero-nigam-starr")
 
-parser.add_argument("--dataset", type=str, default="starr_omop_cdm5_deid_20210723")
+parser.add_argument("--dataset", type=str, default="starr_omop_cdm5_deid_2022_08_01")
 parser.add_argument("--rs_dataset", type=str, default="jlemmon_explore")
 parser.add_argument("--features_dataset", type=str, default="jlemmon_explore")
 parser.add_argument("--features_prefix", type=str, default="features")
@@ -181,4 +181,4 @@ if __name__ == "__main__":
         )
 
 		
-#python extract_features.py --exclude_analysis_ids "note_nlp" "note_nlp_dt" "note_nlp_delayed" --time_bins "-365" "-30" --binary --featurize --no_cloud_storage --merge_features --create_sparse --no_create_parquet --overwrite
+#python extract_features.py --exclude_analysis_ids "note_nlp" "note_nlp_dt" "note_nlp_delayed" --time_bins "-365000" "-365" "-29" "0" --binary --featurize --no_cloud_storage --merge_features --create_sparse --no_create_parquet --overwrite
