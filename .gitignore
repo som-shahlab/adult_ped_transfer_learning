@@ -4,5 +4,6 @@ experiments/artifacts/*
 *.log
 experiments/notebooks/figures
 experiments/notebooks/deprecated
+experiments/notebooks/featurizer_issue
 experiments/scripts/__pycache__
 experiments/scripts/dask-worker-space

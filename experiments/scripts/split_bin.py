@@ -147,6 +147,7 @@ if __name__=='__main__':
 	
 	split_bin_array(args, features, vocab, ped_df, 'pediatric')
 	split_bin_array(args, features, vocab, adult_df, 'adult')
+	split_bin_array(args, features, vocab, cohort, 'shared')
 
 	if args.save_full: 
 		# Save full age group stratified feature sets without train/val/test split

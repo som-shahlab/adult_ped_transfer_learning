@@ -6,6 +6,7 @@ import pdb
 
 import pandas as pd
 import numpy as np
+import itertools
 
 from sklearn.model_selection import KFold
 
@@ -68,14 +69,14 @@ def split_cohort_by_age_group(
 	df['discharge_year']=df['discharge_date'].dt.year
 
 	# Split into train, val, and test
-	test = df.groupby(['age_group']).sample(
+	test = df.groupby(['age_group', 'admission_year']).sample(
 		frac=val_frac+test_frac,
 		random_state = seed
 	).assign(**{
 		f"fold_id":'test'
 	})
 
-	val = test.groupby(['age_group']).sample(
+	val = test.groupby(['age_group', 'admission_year']).sample(
 		frac=val_frac/(val_frac+test_frac),
 		random_state = seed
 	).assign(**{
@@ -95,6 +96,7 @@ def split_cohort_by_age_group(
 	)
 
 	age_groups = df['age_group'].unique()
+	years = df['admission_year'].unique()
 
 	for age_group in age_groups:
 		itrain = train.query(f"age_group==@age_group")

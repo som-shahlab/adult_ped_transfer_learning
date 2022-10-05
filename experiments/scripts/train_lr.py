@@ -32,7 +32,7 @@ parser.add_argument(
 parser.add_argument(
 	'--model_path',
 	type=str,
-	default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models/baseline/lr'
+	default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models'
 )
 
 parser.add_argument(
@@ -48,9 +48,9 @@ parser.add_argument(
 )
 
 parser.add_argument(
-	'--tasks',
+	'--task',
 	type=str,
-	default=['hospital_mortality','LOS_7','readmission_30','icu_admission','aki1_label','aki2_label','hg_label','np_500_label','np_1000_label']
+	default='hospital_mortality'
 )
 
 parser.add_argument(
@@ -104,7 +104,7 @@ def load_data(args):
 
 def get_model(args, hp):
 	# Create LR model using SGDClassifier so that partial_fit() can be called later for transfer 
-	# learning purposes.
+	# learning (finetuning) purposes.
 	return SGDClassifier(
 					loss = hp['loss'], 
 					random_state = hp['random_state'], 
@@ -114,36 +114,36 @@ def get_model(args, hp):
 					verbose = args.verbose
 				)
 
-def train_model(args, hp):
+def train_model(args, hp, train_X, train_labels, val_X, val_labels):
 	print('Initialized model with hyperparams:')
 	print(hp)
-	model_save_path = f'{args.model_path}/{task}/lr_{hp["penalty"]}_{hp["C"]}_{args.feat_group}'
+	model_save_path = f'{args.model_path}/{args.cohort_type}/lr/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
 	os.makedirs(model_save_path,exist_ok=True)
 
 	model = get_model(args, hp)
 
 	print('Training...')
-	model.fit(train_X, list(train_labels[task]))
+	print(train_X)
+	print(train_labels)
+	model.fit(train_X, list(train_labels[args.task]))
 
 	with open(f'{model_save_path}/model.pkl', 'wb') as pkl_file:
 		pickle.dump(model, pkl_file)
 
 	print('Evaluating...')
-	val_preds = model.predict_proba(val_X)
-	val_preds = [r[1] for r in val_preds]
+	val_preds = model.predict_proba(val_X)[:,1]
 
-	loss = log_loss(list(val_labels[f'{task}']),val_preds)
+	loss = log_loss(list(val_labels[f'{args.task}']),val_preds)
 	print(f'Validation loss: {loss}')
 
-	val_df = pd.DataFrame({'val_preds':val_preds, 'labels':list(val_labels[f'{task}']), 'prediction_id':list(val_labels['prediction_id'])})
+	val_df = pd.DataFrame({'val_preds':val_preds, 'labels':list(val_labels[f'{args.task}']), 'prediction_id':list(val_labels['prediction_id'])})
 	val_df.to_csv(f'{model_save_path}/val_preds.csv',index=False)
 
 	return model, loss, val_df
 
 def get_labels(args, task, cohort):
-	#MAYBE ADD TEST EVALUATION IN THIS SCRIPT AS WELL
-	train_labels = cohort.query(f'train_row_idx>=0 and {task}_fold_id!="ignore"')[['prediction_id', 'train_row_idx', f'{task}']]
-	val_labels = cohort.query(f'val_row_idx>=0 and {task}_fold_id!="ignore"')[['prediction_id', 'val_row_idx', f'{task}']]
+	train_labels = cohort.query(f'train_row_idx>=0 and {args.task}_fold_id!="ignore"')[['prediction_id', 'train_row_idx', f'{args.task}']]
+	val_labels = cohort.query(f'val_row_idx>=0 and {args.task}_fold_id!="ignore"')[['prediction_id', 'val_row_idx', f'{args.task}']]
 	return train_labels, val_labels
 
 def slice_sparse_matrix(mat, rows):
@@ -173,31 +173,30 @@ if __name__ == '__main__':
 	
 	train_data, val_data, cohort = load_data(args)
 	
-	for task in args.tasks:
-		print(f'Training models for {task} task...')
-		train_labels, val_labels = get_labels(args, task, cohort)
-		train_X = slice_sparse_matrix(train_data, list(train_labels['train_row_idx']))
-		val_X = slice_sparse_matrix(val_data, list(val_labels['val_row_idx']))
-		best_save_path = f'{args.model_path}/{task}/best/{args.feat_group}'
-		os.makedirs(best_save_path, exist_ok=True)
-		best_model = None
-		best_loss = 999999999`
-		best_val_preds = None
-		best_hp = None
-		
-		for i, hp in enumerate(grid):
-			model, loss, val_preds = train_model(args, hp)
-			if loss < best_loss:
-				print(f'Saving model as best {task} model...')
-				best_model = model
-				best_loss = loss
-				best_val_preds = val_preds
-				best_hp = hp
-				
-		with open(f'{best_save_path}/model.pkl', 'wb') as pkl_file:
-			pickle.dump(best_model, pkl_file)
-		
-		val_preds.to_csv(f'{best_save_path}/val_preds.csv',index=False)
-		
-		with open(f'{best_save_path}/hp.yml','wb') as file:
-			yaml.dump(best_hp, file)
+	print(f'Training models for {args.task} task...')
+	train_labels, val_labels = get_labels(args, args.task, cohort)
+	train_X = slice_sparse_matrix(train_data, list(train_labels['train_row_idx']))
+	val_X = slice_sparse_matrix(val_data, list(val_labels['val_row_idx']))
+	best_save_path = f'{args.model_path}/{args.cohort_type}/lr/{args.task}/{args.feat_group}_feats/best'
+	os.makedirs(best_save_path, exist_ok=True)
+	best_model = None
+	best_loss = 999999999
+	best_val_preds = None
+	best_hp = None
+
+	for i, hp in enumerate(grid):
+		model, loss, val_preds = train_model(args, hp, train_X, train_labels, val_X, val_labels)
+		if loss < best_loss:
+			print(f'Saving model as best {task} model...')
+			best_model = model
+			best_loss = loss
+			best_val_preds = val_preds
+			best_hp = hp
+
+	with open(f'{best_save_path}/model.pkl', 'wb') as pkl_file:
+		pickle.dump(best_model, pkl_file)
+
+	val_preds.to_csv(f'{best_save_path}/val_preds.csv',index=False)
+
+	with open(f'{best_save_path}/hp.yml','w') as file:
+		yaml.dump(best_hp, file)

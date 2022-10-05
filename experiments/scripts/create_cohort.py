@@ -46,7 +46,7 @@ parser.add_argument(
 parser.add_argument(
     "--min_pat_age",
     type=int,
-    default=0,
+    default=-1,
 )
 parser.add_argument(
     "--filter_query",
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 	cohort_labeled.create_cohort_table()
 
 	cohort_filtered = BQFilterInpatientCohort(**args.__dict__)
-	print(cohort_labeled.get_create_query())
+	print(cohort_filtered.get_create_query())
 	cohort_filtered.create_cohort_table()
 	cohort_df = pd.read_gbq(
 		"""
