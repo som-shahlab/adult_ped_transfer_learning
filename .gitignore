@@ -7,3 +7,4 @@ experiments/notebooks/deprecated
 experiments/notebooks/featurizer_issue
 experiments/scripts/__pycache__
 experiments/scripts/dask-worker-space
+experiments/logs/*

@@ -100,7 +100,7 @@ def load_data(args):
 	cohort = cohort.merge(val_rows, how='left', on='prediction_id')
 	cohort['val_row_idx'] = cohort['val_row_idx'].fillna(-1).astype(int)
 	
-	return train_feats.todense(), val_feats.todense(), cohort
+	return train_feats, val_feats, cohort
 
 def get_model(args, hp):
 	# Create LR model using SGDClassifier so that partial_fit() can be called later for transfer 
@@ -187,7 +187,7 @@ if __name__ == '__main__':
 	for i, hp in enumerate(grid):
 		model, loss, val_preds = train_model(args, hp, train_X, train_labels, val_X, val_labels)
 		if loss < best_loss:
-			print(f'Saving model as best {task} model...')
+			print(f'Saving model as best {args.task} model...')
 			best_model = model
 			best_loss = loss
 			best_val_preds = val_preds

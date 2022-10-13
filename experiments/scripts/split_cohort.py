@@ -98,7 +98,7 @@ def split_cohort_by_age_group(
 	age_groups = df['age_group'].unique()
 	years = df['admission_year'].unique()
 
-	for age_group in age_groups:
+	for age_group in age_groups: #get product of years * age_groups -> itertools
 		itrain = train.query(f"age_group==@age_group")
 		c=0
 
