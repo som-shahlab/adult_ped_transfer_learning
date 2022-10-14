@@ -193,3 +193,5 @@ if __name__ == "__main__":
 		),
 		engine="pyarrow",
 	)
+	
+	print(cohort)

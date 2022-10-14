@@ -138,13 +138,16 @@ if __name__=='__main__':
 			),
 			engine='pyarrow'
 		)
+	print(cohort)
 	cohort = cohort.merge(feats_id_map)
-
+	print(cohort)
 	features = joblib.load(os.path.join(args.sparse_path,"features.gz"))
-
-	ped_df = cohort[cohort['age_group'] == '<18']
-	adult_df = cohort[cohort['age_group'] != '<18']
-	
+	print(cohort)
+	print(cohort['adult_at_admission'])
+	ped_df = cohort[cohort['adult_at_admission'] == 0]
+	print(ped_df)
+	adult_df = cohort[cohort['adult_at_admission'] == 1]
+	print(sadsad)
 	split_bin_array(args, features, vocab, ped_df, 'pediatric')
 	split_bin_array(args, features, vocab, adult_df, 'adult')
 	split_bin_array(args, features, vocab, cohort, 'shared')
