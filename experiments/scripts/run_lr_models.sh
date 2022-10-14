@@ -10,7 +10,7 @@
 #SBATCH --error=logs/error-sbatchjob.%J.err
 #SBATCH --output=logs/out-sbatchjob.%J.out
 
-source activate /labs/shahlab/envs/jlemmon/conl
+source activate /home/jlemmon/.conda/envs/tl
 
 cd /labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
 
@@ -58,8 +58,13 @@ function pipe {
 
 	            python -u train_lr.py \
 	                --task=${TASKS[$t]} \
-	                --cohort_type="${COHORT_TYPES[$ij]" \
-	                --feat_group="${FEAT_GROUPS[$g]}" #\
+	                --cohort_type=${COHORT_TYPES[$ij]} \
+	                --feat_group=${FEAT_GROUPS[$g]} \
+			--bin_path="$1" \
+			--cohort_path="$2" \
+			--hparam_path="$3" \
+			--model_path="$4" \
+			--results_path="$5" #\
 	                #>> "../logs/train_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
 
 	            let k+=1
@@ -70,7 +75,12 @@ function pipe {
     
     # evaluate models
     # executes $N_TASK jobs in parallel
-    python -u test_lr.py #\
+    python -u test_lr.py 
+        --bin_path="$1" \
+        --cohort_path="$2" \
+        --hparam_path="$3" \
+        --model_path="$4" \
+        --results_path="$5"#\
         #>> "../logs/test_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
 
 }
@@ -81,7 +91,7 @@ function pipe {
 # execute $N_JOBS pipes in parallel
 c=0
         
-pipe  &
+pipe "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/bin_features" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/cohort" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/hyperparams" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/models" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/results"  &
 
 let c+=1
 [[ $((c%N_JOBS)) -eq 0 ]] && wait
