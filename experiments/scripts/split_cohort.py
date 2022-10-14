@@ -85,7 +85,6 @@ def split_cohort_by_age_group(
 
 	test = test.drop(index=val.index)
 	test = test.append(val)
-
 	train = df.drop(index=test.index)
 
 	# split train into kfolds
@@ -95,21 +94,29 @@ def split_cohort_by_age_group(
 		random_state=seed
 	)
 
-	age_groups = df['age_group'].unique()
+	adult_at_admission = [0, 1]
 	years = df['admission_year'].unique()
 
-	for age_group in age_groups: #get product of years * age_groups -> itertools
-		itrain = train.query(f"age_group==@age_group")
+	for pair in list(itertools.product(adult_at_admission, years)): #get product of years * age_groups -> itertools
+		print(pair)
+		itrain = train.query(f"adult_at_admission==@pair[0] and admission_year==@pair[1]")
+		print(itrain)
 		c=0
+		if len(itrain) > nfold:
+			for _, val_ids in kf.split(itrain[patient_col]):
 
-		for _, val_ids in kf.split(itrain[patient_col]):
-			c+=1
-
-			test = test.append(
-				itrain.iloc[val_ids,:].assign(**{
-					f"fold_id":str(c)
-				})
-			)
+				test = test.append(
+					itrain.iloc[val_ids,:].assign(**{
+						f"fold_id":str(c)
+					})
+				)
+		else:
+				test = test.append(
+					itrain.assign(**{
+						f"fold_id":str(c)
+					})
+				)
+		print(test)
 	for task in tasks:
 		assert(task in test.columns)
 		test[f"{task}_fold_id"]=test['fold_id']
@@ -186,3 +193,5 @@ if __name__ == "__main__":
 		),
 		engine="pyarrow",
 	)
+	
+	print(cohort)

@@ -167,7 +167,7 @@ for task in tasks:
 	
 	test_labels= get_labels(args, task, cohort)
 	test_X = slice_sparse_matrix(test_data, list(test_labels['test_row_idx']))
-    for cohort_type in ['pediatric', 'adult', 'shared']:
+    for cohort_type in ['pediatric', 'adult']:
 		print(f"cohort type: {cohort_type}")
 		for feat_group in ['pediatric', 'shared']:
 			print(f"feature set: {feat_group}")
