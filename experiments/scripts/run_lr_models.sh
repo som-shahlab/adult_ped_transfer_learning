@@ -83,7 +83,7 @@ function pipe {
            --cohort_path="$2" \
        	   --hparam_path="$3" \
            --model_path="$4" \
-           --results_path="$5"#\
+           --result_path="$5"#\
            #>> "../logs/test_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
 	let k+=1
 	[[ $((k%N_TASKS)) -eq 0 ]] && wait
