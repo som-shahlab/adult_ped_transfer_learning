@@ -123,8 +123,6 @@ def train_model(args, hp, train_X, train_labels, val_X, val_labels):
 	model = get_model(args, hp)
 
 	print('Training...')
-	print(train_X)
-	print(train_labels)
 	model.fit(train_X, list(train_labels[args.task]))
 
 	with open(f'{model_save_path}/model.pkl', 'wb') as pkl_file:
