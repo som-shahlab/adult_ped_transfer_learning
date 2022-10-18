@@ -31,7 +31,6 @@ N_BOOT=1000
 N_JOBS=1
 
 # whether to re-run 
-TUNE_OVERWRITE='False'
 TRAIN_OVERWRITE='False'
 EVAL_OVERWRITE='False'
 
