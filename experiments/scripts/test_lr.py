@@ -59,9 +59,10 @@ parser.add_argument(
 )
 
 parser.add_argument(
-	'--tasks',
+	'--task',
 	type=str,
-	default=['hospital_mortality','LOS_7','readmission_30','icu_admission','aki1_label','aki2_label','hg_label','np_500_label','np_1000_label']
+	default='hospital_mortality'
+	#default=['hospital_mortality','LOS_7','readmission_30','icu_admission','aki1_label','aki2_label','hg_label','np_500_label','np_1000_label']
 )
 
 parser.add_argument(
@@ -82,7 +83,7 @@ parser.add_argument(
 #-------------------------------------------------------------------
 
 def load_data(args):
-	
+
 	cohort = read_file(
 			os.path.join(
 				args.cohort_path,
@@ -90,15 +91,15 @@ def load_data(args):
 			),
 			engine='pyarrow'
 		)
-	
+
 	fn = f'{args.bin_path}/{args.cohort_type}'
-	
+
 	test_feats = sp.load_npz(f'{fn}/test/{args.feat_group}_feats.npz')
 	test_rows = pd.read_csv(f'{fn}/test/test_pred_id_map.csv')
-	
+
 	cohort = cohort.merge(test_rows, how='left', on='prediction_id')
 	cohort['test_row_idx'] = cohort['test_row_idx'].fillna(-1).astype(int)
-	
+
 	return test_feats.todense(), cohort
 
 def get_labels(args, task, cohort):
@@ -161,24 +162,22 @@ tasks = args.tasks
 
 test_data, cohort = load_data(args)
 
-for task in tasks:
-    
-    print(f"task: {task}")
-	
-	test_labels= get_labels(args, task, cohort)
-	test_X = slice_sparse_matrix(test_data, list(test_labels['test_row_idx']))
-    for cohort_type in ['pediatric', 'adult']:
-		print(f"cohort type: {cohort_type}")
-		for feat_group in ['pediatric', 'shared']:
-			print(f"feature set: {feat_group}")
-			model_path = f'{args.model_path}/{cohort_type}/lr/{task}/{feat_group}_feats/best'
-			result_path = f'{args.result_path}/{cohort_type}/lr/{task}/{feat_group}_feats/best'
-			eval_model(args, task, model_path, result_save_path, test_x, test_labels)
-			
-			
-    
-        
-        
-        
 
-  
+print(f"task: {task}")
+
+test_labels= get_labels(args, args.task, cohort)
+test_X = slice_sparse_matrix(test_data, list(test_labels['test_row_idx']))
+for cohort_type in ['pediatric', 'adult']:
+	print(f"cohort type: {cohort_type}")
+	for feat_group in ['pediatric', 'shared']:
+		print(f"feature set: {feat_group}")
+		model_path = f'{args.model_path}/{cohort_type}/lr/{args.task}/{feat_group}_feats/best'
+		result_path = f'{args.result_path}/{cohort_type}/lr/{args.task}/{feat_group}_feats/best'
+		eval_model(args, args.task, model_path, result_save_path, test_x, test_labels)
+
+
+
+
+
+
+
