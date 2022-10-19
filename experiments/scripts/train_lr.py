@@ -5,7 +5,7 @@ import os
 import argparse
 import pickle
 import yaml
-from sklearn.linear_model import SGDClassifier
+from sklearn.linear_model import SGDClassifier, LogisticRegression
 from sklearn.model_selection import ParameterGrid
 from sklearn.metrics import log_loss
 
@@ -65,6 +65,13 @@ parser.add_argument(
 	default=0
 )
 
+parser.add_argument(
+	'--model',
+	type=str,
+	default='lr'
+)
+
+
 def read_file(filename, columns=None, **kwargs):
 	'''
 	Helper function to read parquet and csv files into DataFrame
@@ -105,14 +112,24 @@ def load_data(args):
 def get_model(args, hp):
 	# Create LR model using SGDClassifier so that partial_fit() can be called later for transfer 
 	# learning (finetuning) purposes.
-	return SGDClassifier(
+	if args.model == 'sgd':
+		return SGDClassifier(
 					loss = hp['loss'], 
 					random_state = hp['random_state'], 
-					alpha = hp['C'], 
+					alpha = hp['alpha'], 
 					penalty = hp['penalty'], 
 					max_iter = hp['max_iter'],
 					verbose = args.verbose
-				)
+				    )
+	else:
+		return LogisticRegression(
+					random_state = hp['random_state'], 
+					C = hp['C'], 
+					penalty = hp['penalty'], 
+					max_iter = hp['max_iter'],
+					verbose = args.verbose
+				         )
+
 
 def train_model(args, hp, train_X, train_labels, val_X, val_labels):
 	print('Initialized model with hyperparams:')
@@ -161,7 +178,7 @@ if __name__ == '__main__':
 		ParameterGrid(
 			yaml.load(
 				open(
-					f"{os.path.join(args.hparam_path,'lr')}.yml",
+					f"{os.path.join(args.hparam_path,f'{args.model}')}.yml",
 					'r'
 				),
 				Loader=yaml.FullLoader
@@ -171,11 +188,11 @@ if __name__ == '__main__':
 	
 	train_data, val_data, cohort = load_data(args)
 	
-	print(f'Training models for {args.task} task...')
+	print(f'Training {args.model} models for {args.task} task...')
 	train_labels, val_labels = get_labels(args, args.task, cohort)
 	train_X = slice_sparse_matrix(train_data, list(train_labels['train_row_idx']))
 	val_X = slice_sparse_matrix(val_data, list(val_labels['val_row_idx']))
-	best_save_path = f'{args.model_path}/{args.cohort_type}/lr/{args.task}/{args.feat_group}_feats/best'
+	best_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/best'
 	os.makedirs(best_save_path, exist_ok=True)
 	best_model = None
 	best_loss = 999999999

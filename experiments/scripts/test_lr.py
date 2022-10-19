@@ -98,6 +98,12 @@ parser.add_argument(
 	default='26'
 )
 
+parser.add_argument(
+	'--model',
+	type=str,
+	default='lr'
+)
+
 
 #-------------------------------------------------------------------
 # helper functions
@@ -171,11 +177,22 @@ def eval_model(args, task, model_path, result_path, X_test, y_test, hp):
 		patient_id_var='prediction_id',
 		return_result_df = True
 	)
-	os.makedirs(f"results_save_fpath/{hp['C']}",exist_ok=True)
-
-	df_test['C'] = hp['C']
-	df_test['model'] = 'LR'
 	os.makedirs(f"{result_path}", exist_ok=True)
+	
+	if args.model == 'lr': 
+		df['C'] = hp['C']
+		df['model'] = 'LR'	
+	
+		df_test['C'] = hp['C']
+		df_test['model'] = 'LR'
+	elif args.model == 'sgd':
+		df['alpha'] = hp['alpha']
+		df['model'] = 'SGD'	
+	
+		df_test['alpha'] = hp['alpha']
+		df_test['model'] = 'SGD'
+
+	df.reset_index(drop=True).to_csv(f"{result_path}/test_preds.csv", index=False)
 	df_test_ci.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
 
 
@@ -204,10 +221,11 @@ for cohort_type in ['pediatric', 'adult']:
 	print(f"cohort type: {cohort_type}")
 	for feat_group in ['pediatric', 'shared']:
 		print(f"feature set: {feat_group}")
-		model_path = f'{args.model_path}/{cohort_type}/lr/{task}/{feat_group}_feats/best'
+		model_path = f'{args.model_path}/{cohort_type}/{args.model}/{task}/{feat_group}_feats/best'
 		hp = get_model_hp(model_path)
 		print(hp)
-		result_path = f'{args.result_path}/{cohort_type}/lr/{task}/{feat_group}_feats/best'
+		result_path = f'{args.result_path}/{cohort_type}/{args.model}/{task}/{feat_group}_feats/best'
+		print(result_path)
 		eval_model(args, task, model_path, result_path, test_X, test_labels, hp)
 
 
