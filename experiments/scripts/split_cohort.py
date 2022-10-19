@@ -40,6 +40,48 @@ parser.add_argument(
 	help = "seed for deterministic training"
 )
 
+parser.add_argument(
+	'--train_start_year',
+	type=int,
+	default=2008,
+	help='Start date of training ids.'
+)
+
+parser.add_argument(
+	'--train_end_year',
+	type=int,
+	default=2019,
+	help='End date of training ids.'
+)
+
+parser.add_argument(
+	'--val_start_year',
+	type=int,
+	default=2008,
+	help='Start date of validation ids.'
+)
+
+parser.add_argument(
+	'--val_end_year',
+	type=int,
+	default=2019,
+	help='End date of validation ids.'
+)
+
+parser.add_argument(
+	'--test_start_year',
+	type=int,
+	default=2020,
+	help='Start date of test ids.'
+)
+
+parser.add_argument(
+	'--test_end_year',
+	type=int,
+	default=2022,
+	help='End date of test ids.'
+)
+
 #------------------------------------
 # Helper funs
 #------------------------------------
@@ -51,7 +93,8 @@ def read_file(filename, columns=None, **kwargs):
 	elif load_extension == ".csv":
 		return pd.read_csv(filename, usecols=columns, **kwargs)
 
-def split_cohort_by_age_group(
+def split_cohort(
+		args,
 		df,
 		seed,
 		patient_col='person_id',
@@ -69,23 +112,19 @@ def split_cohort_by_age_group(
 	df['discharge_year']=df['discharge_date'].dt.year
 
 	# Split into train, val, and test
-	test = df.groupby(['age_group', 'admission_year']).sample(
-		frac=val_frac+test_frac,
-		random_state = seed
-	).assign(**{
-		f"fold_id":'test'
-	})
+	test = df.query('admission_year >= @args.test_start_year').assign(**{f"fold_id":'test'})
 
-	val = test.groupby(['age_group', 'admission_year']).sample(
-		frac=val_frac/(val_frac+test_frac),
+	val = df.query('admission_year >= @args.val_start_year and admission_year <=@args.val_end_year').groupby(['adult_at_admission', 'admission_year']).sample(
+		frac=val_frac,
 		random_state = seed
 	).assign(**{
 		f"fold_id":'val'
 	})
-
-	test = test.drop(index=val.index)
-	test = test.append(val)
-	train = df.drop(index=test.index)
+	train = df.query('admission_year >= @args.train_start_year and admission_year <=@args.train_end_year').drop(index=val.index)
+	# train = train.drop(index=test.index)
+	train = train.assign(**{
+		f"fold_id":'train'
+	})
 
 	# split train into kfolds
 	kf = KFold(
@@ -94,75 +133,68 @@ def split_cohort_by_age_group(
 		random_state=seed
 	)
 
+	cohort = test
+	cohort = pd.concat((test,val))
 	adult_at_admission = [0, 1]
-	years = df['admission_year'].unique()
+	years = train['admission_year'].unique()
 
 	for pair in list(itertools.product(adult_at_admission, years)): #get product of years * age_groups -> itertools
-		print(pair)
 		itrain = train.query(f"adult_at_admission==@pair[0] and admission_year==@pair[1]")
-		print(itrain)
 		c=0
-		if len(itrain) > nfold:
-			for _, val_ids in kf.split(itrain[patient_col]):
+		for _, val_ids in kf.split(itrain[patient_col]):
 
-				test = test.append(
-					itrain.iloc[val_ids,:].assign(**{
-						f"fold_id":str(c)
-					})
-				)
-		else:
-				test = test.append(
-					itrain.assign(**{
-						f"fold_id":str(c)
-					})
-				)
-		print(test)
+			cohort = pd.concat((cohort,
+				itrain.iloc[val_ids,:].assign(**{
+					f"fold_id":str(c)
+				}))
+			)
+
 	for task in tasks:
-		assert(task in test.columns)
-		test[f"{task}_fold_id"]=test['fold_id']
-		
+		assert(task in cohort.columns)
+		cohort[f"{task}_fold_id"]=cohort['fold_id']
+
 		# remove deaths before midnight
-		test.loc[test['death_date']<=test['admit_date_midnight'],f'{task}_fold_id']='ignore'
-		test.loc[test['death_date']<=test['admit_date_midnight'],f'{task}']=np.nan
+		cohort.loc[cohort['death_date']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+		cohort.loc[cohort['death_date']<=cohort['admit_date_midnight'],f'{task}']=np.nan
 
 		# remove discharges before midnight
-		test.loc[test['discharge_date']<=test['admit_date_midnight'],f'{task}_fold_id']='ignore'
-		test.loc[test['discharge_date']<=test['admit_date_midnight'],f'{task}']=np.nan
+		cohort.loc[cohort['discharge_date']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+		cohort.loc[cohort['discharge_date']<=cohort['admit_date_midnight'],f'{task}']=np.nan
 
 		if task == 'readmission_30':
 			# remove admissions in which the patient died
-			test.loc[test['hospital_mortality']==1,f'{task}_fold_id']='ignore'
-			test.loc[test['hospital_mortality']==1,f'{task}']= np.nan
+			cohort.loc[cohort['hospital_mortality']==1,f'{task}_fold_id']='ignore'
+			cohort.loc[cohort['hospital_mortality']==1,f'{task}']= np.nan
 			# remove re-admissions on the same day
-			test.loc[test['readmission_window']==0,f'{task}_fold_id']='ignore'
-			test.loc[test['readmission_window']==0,f'{task}']= np.nan
+			cohort.loc[cohort['readmission_window']==0,f'{task}_fold_id']='ignore'
+			cohort.loc[cohort['readmission_window']==0,f'{task}']= np.nan
 
 		if task == 'icu_admission':
 			# remove icu admissions before midnight
-			test.loc[test['icu_start_datetime']<=test['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			test.loc[test['icu_start_datetime']<=test['admit_date_midnight'],f'{task}']=np.nan
-			
+			cohort.loc[cohort['icu_start_datetime']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+			cohort.loc[cohort['icu_start_datetime']<=cohort['admit_date_midnight'],f'{task}']=np.nan
+
 		if task == 'aki1_label':
 			# remove aki1 before midnight
-			test.loc[test['aki1_creatinine_time']<=test['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			test.loc[test['aki1_creatinine_time']<=test['admit_date_midnight'],f'{task}']=np.nan
+			cohort.loc[cohort['aki1_creatinine_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+			cohort.loc[cohort['aki1_creatinine_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
 		if task == 'aki2_label':
 			# remove aki2 before midnight
-			test.loc[test['aki2_creatinine_time']<=test['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			test.loc[test['aki2_creatinine_time']<=test['admit_date_midnight'],f'{task}']=np.nan
+			cohort.loc[cohort['aki2_creatinine_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+			cohort.loc[cohort['aki2_creatinine_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
 		if task == 'hg_label':
 			# remove hg before midnight
-			test.loc[test['hg_glucose_time']<=test['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			test.loc[test['hg_glucose_time']<=test['admit_date_midnight'],f'{task}']=np.nan
+			cohort.loc[cohort['hg_glucose_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+			cohort.loc[cohort['hg_glucose_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
 		if task == 'np_500_label':
 			# remove np_500 before midnight
-			test.loc[test['np_500_neutrophils_time']<=test['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			test.loc[test['np_500_neutrophils_time']<=test['admit_date_midnight'],f'{task}']=np.nan
+			cohort.loc[cohort['np_500_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+			cohort.loc[cohort['np_500_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
 		if task == 'np_1000_label':
 			# remove np_500 before midnight
-			test.loc[test['np_1000_neutrophils_time']<=test['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			test.loc[test['np_1000_neutrophils_time']<=test['admit_date_midnight'],f'{task}']=np.nan
-	return test.sort_index()
+			cohort.loc[cohort['np_1000_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+			cohort.loc[cohort['np_1000_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
+	return cohort.sort_index()
 
 #-------------------------------------------------------------------
 # run
@@ -180,7 +212,8 @@ if __name__ == "__main__":
 		engine='pyarrow'
 	)
 	# split cohort
-	cohort = split_cohort_by_age_group(
+	cohort = split_cohort(
+		args,
 		cohort,
 		args.seed
 	)
@@ -193,5 +226,5 @@ if __name__ == "__main__":
 		),
 		engine="pyarrow",
 	)
-	
+
 	print(cohort)

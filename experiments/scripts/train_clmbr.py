@@ -146,6 +146,12 @@ parser.add_argument(
 	default='cuda:0'
 )
 
+parser.add_argument(
+	'--pretrain_group',
+	type=str,
+	default='mix'
+)
+
 if __name__ == "__main__":
     
 	args = parser.parse_args()
@@ -167,7 +173,7 @@ if __name__ == "__main__":
 	)
     
 	# create info
-	info_dir=f'{args.infos_fpath}'
+	info_dir=f'{args.infos_fpath}/{args.pretrain_group}'
 	train_end_date=args.train_end_date
 	val_end_date=args.val_end_date
 	
@@ -184,7 +190,7 @@ if __name__ == "__main__":
 		"--train_start_date", f"{args.train_start_date}",
 		"--val_start_date", f"{args.val_start_date}",
 		"--min_patient_count", args.min_patient_count,
-		"--excluded_patient_file", args.excluded_patient_list,
+		"--excluded_patient_file", f"{args.excluded_patient_list}/{args.pretrain_group}",
 		"--seed", f'{args.seed}'
 	])
 	
@@ -193,7 +199,7 @@ if __name__ == "__main__":
     # collect args
 	for i,hparams in enumerate(grid):
         
-		model_dir=f'{args.models_fpath}/{args.encoder}_sz_{hparams["size"]}_do_{hparams["dropout"]}_cd_{hparams["code_dropout"]}_dd_{hparams["day_dropout"]}_lr_{hparams["lr"]}_l2_{hparams["l2"]}'
+		model_dir=f'{args.models_fpath}/{args.pretrain_group}/{args.encoder}_sz_{hparams["size"]}_do_{hparams["dropout"]}_lr_{hparams["lr"]}_l2_{hparams["l2"]}'
 
 		if args.overwrite and os.path.exists(model_dir):
 			shutil.rmtree(model_dir, ignore_errors=True)
