@@ -33,6 +33,48 @@ parser.add_argument(
 	action='store_true'
 )
 
+parser.add_argument(
+    '--train_start_year',
+    type=int,
+    default=2008,
+    help='Start date of training ids.'
+)
+
+parser.add_argument(
+    '--train_end_year',
+    type=int,
+    default=2019,
+    help='End date of training ids.'
+)
+
+parser.add_argument(
+    '--val_start_year',
+    type=int,
+    default=2008,
+    help='Start date of validation ids.'
+)
+
+parser.add_argument(
+    '--val_end_year',
+    type=int,
+    default=2019,
+    help='End date of validation ids.'
+)
+
+parser.add_argument(
+    '--test_start_year',
+    type=int,
+    default=2020,
+    help='Start date of test ids.'
+)
+
+parser.add_argument(
+    '--test_end_year',
+    type=int,
+    default=2022,
+    help='End date of test ids.'
+)
+
 def read_file(filename, columns=None, **kwargs):
 	'''
 	Helper function to read parquet and csv files into DataFrame
@@ -51,9 +93,9 @@ def split_bin_array(args, bin_arr, vocab, cohort_df, age_group='pediatric'):
 	Also save new vocabulary for pruned feature sets.
 	'''
 	print(f'Splitting {age_group} features...\n')
-	test_df = cohort_df.query('fold_id=="test"')
-	val_df = cohort_df.query('fold_id=="val"')
-	train_df = cohort_df.query('fold_id!="test" and fold_id!="val"')
+	test_df = cohort_df.query('fold_id=="test" and admission_year>=@args.test_start_year and admission_year<=@args.test_end_year')
+	val_df = cohort_df.query('fold_id=="val" and admission_year>=@args.val_start_year and admission_year<=@args.val_end_year')
+	train_df = cohort_df.query('fold_id!="test" and fold_id!="val" and admission_year>=@args.train_start_year and admission_year<=@args.train_end_year')
 	
 	shared_feat_cols = pd.read_csv(f'{args.bin_path}/shared_feats.csv')
 	pediatric_feat_cols = pd.read_csv(f'{args.bin_path}/only_pediatric_feats.csv')
