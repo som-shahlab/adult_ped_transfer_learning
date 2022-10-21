@@ -43,7 +43,7 @@ parser.add_argument(
 parser.add_argument(
     '--train_end_year',
     type=int,
-    default=2019,
+    default=2020,
     help='End date of training ids.'
 )
 
@@ -57,14 +57,14 @@ parser.add_argument(
 parser.add_argument(
     '--val_end_year',
     type=int,
-    default=2019,
+    default=2020,
     help='End date of validation ids.'
 )
 
 parser.add_argument(
     '--test_start_year',
     type=int,
-    default=2020,
+    default=2021,
     help='Start date of test ids.'
 )
 
@@ -126,7 +126,7 @@ def split_bin_array(args, bin_arr, vocab, cohort_df, age_group='pediatric'):
 			row_map = pd.DataFrame({f'{split}_row_idx':[i for i in range(len(pt_rows))], 'prediction_id':list(test_df['prediction_id'])})
 			row_map.to_csv(f'{args.bin_path}/{age_group}/{split}/test_pred_id_map.csv',index=False)
 		
-		pt_feats = slice_sparse_matrix(bin_arr, pt_rows)
+		pt_feats = bin_arr[pt_rows]
 		sp.save_npz(f'{args.bin_path}/{age_group}/{split}/all_feats.npz', pt_feats)
 
 		for feat_type in ['shared', 'pediatric', 'adult']:
@@ -146,16 +146,6 @@ def prune_cols(feats, col_list, vocab):
 	pruned_feats = feats.tocsc()[:,col_list]
 	pruned_vocab = vocab[vocab['col_id'].isin(col_list)]['feature_id'].reset_index(drop=True).reset_index().rename(columns={'index':'col_id'})
 	return pruned_feats.tocsr(), pruned_vocab
-
-def slice_sparse_matrix(mat, rows):
-	'''
-	Slice rows in sparse matrix using given rows indices
-	'''
-	mask = np.zeros(mat.shape[0], dtype=bool)
-	mask[rows] = True
-	w = np.flatnonzero(mask)
-	sliced = mat[w,:]
-	return sliced
 					
 if __name__=='__main__':
 	args = parser.parse_args()	
@@ -182,8 +172,8 @@ if __name__=='__main__':
 		)
 	cohort = cohort.merge(feats_id_map)
 	features = joblib.load(os.path.join(args.sparse_path,"features.gz"))
-	ped_df = cohort[cohort['adult_at_admission'] == 0]
-	adult_df = cohort[cohort['adult_at_admission'] == 1]
+	ped_df = cohort[cohort['adult_at_admission'] == 0].sort_values(by='features_row_id')
+	adult_df = cohort[cohort['adult_at_admission'] == 1].sort_values(by='features_row_id')
 	split_bin_array(args, features, vocab, ped_df, 'pediatric')
 	split_bin_array(args, features, vocab, adult_df, 'adult')
 	split_bin_array(args, features, vocab, cohort, 'shared')
@@ -199,8 +189,8 @@ if __name__=='__main__':
 		
 		print('Saving pediatric features...')
 		pd.DataFrame(ped_row_map).to_csv(args.bin_path + '/pediatric/pat_map.csv',index=False)		
-		sp.save_npz(f'{args.bin_path}/pediatric/full.npz', slice_sparse_matrix(features, ped_rows))
+		sp.save_npz(f'{args.bin_path}/pediatric/full.npz', features[ped_rows])
 		print('Saving adult features...')
 		pd.DataFrame(ad_row_map).to_csv(args.bin_path + '/adult/pat_map.csv',index=False)
-		sp.save_npz(f'{args.bin_path}/adult/full.npz', slice_sparse_matrix(features, ad_rows))
+		sp.save_npz(f'{args.bin_path}/adult/full.npz', features[ad_rows])
 

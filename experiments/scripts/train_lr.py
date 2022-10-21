@@ -38,7 +38,7 @@ parser.add_argument(
 parser.add_argument(
 	'--results_path',
 	type=str,
-	default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/results/baseline/lr'
+	default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/results/baseline'
 )
 
 parser.add_argument(
@@ -68,9 +68,8 @@ parser.add_argument(
 parser.add_argument(
 	'--model',
 	type=str,
-	default='lr'
+	default='sgd'
 )
-
 
 def read_file(filename, columns=None, **kwargs):
 	'''
@@ -101,7 +100,7 @@ def load_data(args):
 	cohort = cohort.merge(train_rows, how='left', on='prediction_id')
 	cohort['train_row_idx'] = cohort['train_row_idx'].fillna(-1).astype(int)
 	
-	val_feats = sp.load_npz(f'{fn}/train/{args.feat_group}_feats.npz')
+	val_feats = sp.load_npz(f'{fn}/val/{args.feat_group}_feats.npz')
 	val_rows = pd.read_csv(f'{fn}/val/val_pred_id_map.csv')
 	
 	cohort = cohort.merge(val_rows, how='left', on='prediction_id')
@@ -114,27 +113,24 @@ def get_model(args, hp):
 	# learning (finetuning) purposes.
 	if args.model == 'sgd':
 		return SGDClassifier(
-					loss = hp['loss'], 
-					random_state = hp['random_state'], 
-					alpha = hp['alpha'], 
-					penalty = hp['penalty'], 
-					max_iter = hp['max_iter'],
-					verbose = args.verbose
-				    )
-	else:
+						loss = hp['loss'], 
+						random_state = hp['random_state'], 
+						alpha = hp['alpha'], 
+						penalty = hp['penalty'], 
+						max_iter = hp['max_iter'],
+						verbose = args.verbose
+					)
+	elif args.model == 'lr'
 		return LogisticRegression(
-					random_state = hp['random_state'], 
-					C = hp['C'], 
-					penalty = hp['penalty'], 
-					max_iter = hp['max_iter'],
-					verbose = args.verbose
-				         )
-
+						random_state = hp['random_state'], 
+						C = hp['C'], 
+						max_iter = 2000
+		)
 
 def train_model(args, hp, train_X, train_labels, val_X, val_labels):
 	print('Initialized model with hyperparams:')
 	print(hp)
-	model_save_path = f'{args.model_path}/{args.cohort_type}/lr/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
+	model_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
 	os.makedirs(model_save_path,exist_ok=True)
 
 	model = get_model(args, hp)
@@ -157,28 +153,20 @@ def train_model(args, hp, train_X, train_labels, val_X, val_labels):
 	return model, loss, val_df
 
 def get_labels(args, task, cohort):
-	train_labels = cohort.query(f'train_row_idx>=0 and {args.task}_fold_id!="ignore"')[['prediction_id', 'train_row_idx', f'{args.task}']]
-	val_labels = cohort.query(f'val_row_idx>=0 and {args.task}_fold_id!="ignore"')[['prediction_id', 'val_row_idx', f'{args.task}']]
+	train_cohort = cohort.query(f'train_row_idx>=0 and {args.task}_fold_id!="ignore"').sort_values(by='train_row_idx')
+	train_labels = train_cohort[['prediction_id', 'train_row_idx', f'{args.task}']]
+	val_cohort = cohort.query(f'val_row_idx>=0 and {args.task}_fold_id!="ignore"').sort_values(by='val_row_idx')
+	val_labels = val_cohort[['prediction_id', 'val_row_idx', f'{args.task}']]
 	return train_labels, val_labels
-
-def slice_sparse_matrix(mat, rows):
-	'''
-	Slice rows in sparse matrix using given rows indices
-	'''
-	mask = np.zeros(mat.shape[0], dtype=bool)
-	mask[rows] = True
-	w = np.flatnonzero(mask)
-	sliced = mat[w,:]
-	return sliced
 
 if __name__ == '__main__':
 	args = parser.parse_args()
 	
 	grid = list(
-		ParameterGrid(
+		ParameterGrid(   
 			yaml.load(
 				open(
-					f"{os.path.join(args.hparam_path,f'{args.model}')}.yml",
+					f"{os.path.join(args.hparam_path,f'args.model')}.yml",
 					'r'
 				),
 				Loader=yaml.FullLoader
@@ -188,10 +176,10 @@ if __name__ == '__main__':
 	
 	train_data, val_data, cohort = load_data(args)
 	
-	print(f'Training {args.model} models for {args.task} task...')
+	print(f'Training models for {args.task} task...')
 	train_labels, val_labels = get_labels(args, args.task, cohort)
-	train_X = slice_sparse_matrix(train_data, list(train_labels['train_row_idx']))
-	val_X = slice_sparse_matrix(val_data, list(val_labels['val_row_idx']))
+	train_X = train_data[list(train_labels['train_row_idx'])]
+	val_X = val_data[list(val_labels['val_row_idx'])]
 	best_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/best'
 	os.makedirs(best_save_path, exist_ok=True)
 	best_model = None

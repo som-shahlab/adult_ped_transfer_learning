@@ -22,7 +22,8 @@ cd /labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
 ## --------------------- job specification -------------------
 ## -----------------------------------------------------------
 COHORT_TYPES=("pediatric" "adult")
-FEAT_GROUPS=("shared" "pediatric")
+FEAT_GROUPS=("shared" "pediatric" "adult")
+MODELS=("sgd" "lr")
 TASKS=('hospital_mortality' 'LOS_7' 'readmission_30' 'icu_admission' 'aki1_label' 'aki2_label' 'hg_label' 'np_500_label' 'np_1000_label')
 N_BOOT=1000
 
@@ -41,6 +42,7 @@ EVAL_OVERWRITE='False'
 N_COHORTS=${#COHORT_TYPES[@]}
 N_TASKS=${#TASKS[@]}
 N_GROUPS=${#FEAT_GROUPS[@]}
+N_MODELS=${#MODELS[@]}
 
 # generate job id
 JOB_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -55,20 +57,23 @@ function pipe {
     for (( ij=0; ij<$N_COHORTS; ij++ )); do
     	for (( g=0; g<$N_GROUPS; g++)); do
         	for (( t=0; t<$N_TASKS; t++ )); do
+				for (( m=0; m<$N_MODELS; m++)); do
 
-	            python -u train_lr.py \
-	                --task=${TASKS[$t]} \
-	                --cohort_type=${COHORT_TYPES[$ij]} \
-	                --feat_group=${FEAT_GROUPS[$g]} \
-			--bin_path="$1" \
-			--cohort_path="$2" \
-			--hparam_path="$3" \
-			--model_path="$4" \
-			--results_path="$5" #\
-	                #>> "../logs/train_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
+					python -u train_lr.py \
+						--task=${TASKS[$t]} \
+						--cohort_type=${COHORT_TYPES[$ij]} \
+						--feat_group=${FEAT_GROUPS[$g]} \
+						--model=${MODELS[$m]} \
+						--bin_path="$1" \
+						--cohort_path="$2" \
+						--hparam_path="$3" \
+						--model_path="$4" \
+						--results_path="$5" #\
+						#>> "../logs/train_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
 
-	            let k+=1
-	            [[ $((k%N_TASKS)) -eq 0 ]] && wait
+					let k+=1
+					[[ $((k%N_TASKS)) -eq 0 ]] && wait
+				done
 	        done
         done
     done
@@ -77,16 +82,16 @@ function pipe {
     # executes $N_TASK jobs in parallel
     local k=0
     for (( t=0; t<$N_TASKS; t++ )); do
- 	python -u test_lr.py \
-           --task=${TASKS[$t]} \
-	   --bin_path="$1" \
-           --cohort_path="$2" \
-       	   --hparam_path="$3" \
-           --model_path="$4" \
-           --result_path="$5"#\
-           #>> "../logs/test_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
-	let k+=1
-	[[ $((k%N_TASKS)) -eq 0 ]] && wait
+		python -u test_lr.py \
+			   --task=${TASKS[$t]} \
+			   --bin_path="$1" \
+			   --cohort_path="$2" \
+			   --hparam_path="$3" \
+			   --model_path="$4" \
+			   --result_path="$5"#\
+			   #>> "../logs/test_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
+		let k+=1
+		[[ $((k%N_TASKS)) -eq 0 ]] && wait
      done
 
 }

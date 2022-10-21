@@ -64,7 +64,6 @@ parser.add_argument(
 	'--task',
 	type=str,
 	default='hospital_mortality'
-	#default=['hospital_mortality','LOS_7','readmission_30','icu_admission','aki1_label','aki2_label','hg_label','np_500_label','np_1000_label']
 )
 
 parser.add_argument(
@@ -96,12 +95,6 @@ parser.add_argument(
 	'--seed',
 	type=int,
 	default='26'
-)
-
-parser.add_argument(
-	'--model',
-	type=str,
-	default='lr'
 )
 
 
@@ -144,19 +137,10 @@ def load_data(args):
 	return test_feats.todense(), cohort
 
 def get_labels(args, task, cohort):
-	return cohort.query(f'test_row_idx>=0 and {task}_fold_id!="ignore"')[['prediction_id', 'test_row_idx', f'{task}']]
+	test_cohort = cohort.query(f'test_row_idx>=0 and {task}_fold_id!="ignore"').sort_values(by='test_row_idx') 
+	return test_cohort[['prediction_id', 'test_row_idx', f'{task}']]
 
-def slice_sparse_matrix(mat, rows):
-	'''
-	Slice rows in sparse matrix using given rows indices
-	'''
-	mask = np.zeros(mat.shape[0], dtype=bool)
-	mask[rows] = True
-	w = np.flatnonzero(mask)
-	sliced = mat[w,:]
-	return sliced
-
-def eval_model(args, task, model_path, result_path, X_test, y_test, hp):
+def eval_model(args, task, model_path, result_path, X_test, y_test, hp, model):
 	m = pickle.load(open(f'{model_path}/model.pkl', 'rb'))
 	evaluator = StandardEvaluator(metrics=['auc','auprc','auprc_c','loss_bce','ace_abs_logistic_logit'])
 
@@ -177,22 +161,11 @@ def eval_model(args, task, model_path, result_path, X_test, y_test, hp):
 		patient_id_var='prediction_id',
 		return_result_df = True
 	)
-	os.makedirs(f"{result_path}", exist_ok=True)
-	
-	if args.model == 'lr': 
-		df['C'] = hp['C']
-		df['model'] = 'LR'	
-	
-		df_test['C'] = hp['C']
-		df_test['model'] = 'LR'
-	elif args.model == 'sgd':
-		df['alpha'] = hp['alpha']
-		df['model'] = 'SGD'	
-	
-		df_test['alpha'] = hp['alpha']
-		df_test['model'] = 'SGD'
+	os.makedirs(f"results_save_fpath/{hp['C']}",exist_ok=True)
 
-	df.reset_index(drop=True).to_csv(f"{result_path}/test_preds.csv", index=False)
+	df_test['C'] = hp['C']
+	df_test['model'] = model
+	os.makedirs(f"{result_path}", exist_ok=True)
 	df_test_ci.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
 
 
@@ -216,17 +189,17 @@ test_data, cohort = load_data(args)
 print(f"task: {task}")
 
 test_labels= get_labels(args, task, cohort)
-test_X = slice_sparse_matrix(test_data, list(test_labels['test_row_idx']))
-for cohort_type in ['pediatric', 'adult']:
-	print(f"cohort type: {cohort_type}")
-	for feat_group in ['pediatric', 'shared']:
-		print(f"feature set: {feat_group}")
-		model_path = f'{args.model_path}/{cohort_type}/{args.model}/{task}/{feat_group}_feats/best'
-		hp = get_model_hp(model_path)
-		print(hp)
-		result_path = f'{args.result_path}/{cohort_type}/{args.model}/{task}/{feat_group}_feats/best'
-		print(result_path)
-		eval_model(args, task, model_path, result_path, test_X, test_labels, hp)
+test_X = test_data[list(test_labels['test_row_idx'])]
+for model in ['sgd', 'lr']:
+	for cohort_type in ['pediatric', 'adult']:
+		print(f"cohort type: {cohort_type}")
+		for feat_group in ['pediatric', 'shared', 'adult']:
+			print(f"feature set: {feat_group}")
+			model_path = f'{args.model_path}/{cohort_type}/{model}/{task}/{feat_group}_feats/best'
+			hp = get_model_hp(model_path)
+			print(hp)
+			result_path = f'{args.result_path}/{cohort_type}/{model}/{task}/{feat_group}_feats/best'
+			eval_model(args, task, model_path, result_path, test_X, test_labels, hp, model)
 
 
 
