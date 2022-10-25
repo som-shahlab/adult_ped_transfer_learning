@@ -16,7 +16,7 @@ from ehr_ml.clmbr import convert_patient_data
 from sklearn.model_selection import ParameterGrid
 
 parser = argparse.ArgumentParser(
-    description='Train baseline CLMBR model'
+    description='Pretrain baseline CLMBR model'
 )
 
 parser.add_argument(
@@ -34,7 +34,7 @@ parser.add_argument(
 parser.add_argument(
     '--cohort_fpath',
     type=str,
-    default="/local-scratch/nigam/projects/jlemmon/cl-clmbr/cohort",
+    default="/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/cohort",
 )
 
 parser.add_argument(
@@ -59,7 +59,7 @@ parser.add_argument(
 parser.add_argument(
     '--train_end_date',
     type=str,
-    default='2019-12-31',
+    default='2020-12-31',
     help='End date of training ids.'
 )
 
@@ -73,14 +73,14 @@ parser.add_argument(
 parser.add_argument(
     '--val_end_date',
     type=str,
-    default='2019-12-31',
+    default='2020-12-31',
     help='End date of validation ids.'
 )
 
 parser.add_argument(
     '--test_start_date',
     type=str,
-    default='2020-01-01',
+    default='2021-01-01',
     help='Start date of test ids.'
 )
 
@@ -92,9 +92,9 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    '--excluded_patient_list',
+    '--excluded_patient_path',
     type=str,
-    default="/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/held_out_patients/excluded_patient_ids.txt"
+    default="/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/held_out_patients/excluded_patient_ids"
 )
 
 parser.add_argument(
@@ -131,7 +131,7 @@ parser.add_argument(
 parser.add_argument(
     '--gpu_num_start',
     type=int,
-    default=3
+    default=7
 )
 
 parser.add_argument(
@@ -177,7 +177,9 @@ if __name__ == "__main__":
 	train_end_date=args.train_end_date
 	val_end_date=args.val_end_date
 	
-	
+	print(args.pretrain_group)
+	exc_pat_file = f"{args.excluded_patient_path}_{args.pretrain_group}.txt"
+	print(exc_pat_file)
 	if args.overwrite and os.path.exists(info_dir):
 		shutil.rmtree(info_dir, ignore_errors=True)
 
@@ -190,7 +192,7 @@ if __name__ == "__main__":
 		"--train_start_date", f"{args.train_start_date}",
 		"--val_start_date", f"{args.val_start_date}",
 		"--min_patient_count", args.min_patient_count,
-		"--excluded_patient_file", f"{args.excluded_patient_list}/{args.pretrain_group}",
+		"--excluded_patient_file", exc_pat_file,
 		"--seed", f'{args.seed}'
 	])
 	
@@ -215,8 +217,6 @@ if __name__ == "__main__":
 			'--encoder_type', f"{hparams['encoder_type']}",
 			'--size', f"{hparams['size']}",
 			'--dropout', f"{hparams['dropout']}",
-			'--code_dropout', f"{hparams['code_dropout']}",
-			'--day_dropout', f"{hparams['day_dropout']}",
 			'--batch_size', f"{hparams['batch_size']}",
 			'--epochs', f"{hparams['epochs']}",
 			'--l2', f"{hparams['l2']}",

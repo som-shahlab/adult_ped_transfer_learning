@@ -161,9 +161,12 @@ def eval_model(args, task, model_path, result_path, X_test, y_test, hp, model):
 		patient_id_var='prediction_id',
 		return_result_df = True
 	)
-	os.makedirs(f"results_save_fpath/{hp['C']}",exist_ok=True)
-
-	df_test['C'] = hp['C']
+	os.makedirs(f"results_save_fpath/{hp['C'] if model == 'lr' else hp['alpha']}",exist_ok=True)
+	
+	if model == 'lr':
+		df_test['C'] = hp['C']
+	elif model == 'sgd':
+		df_test['alpha'] = hp['alpha']
 	df_test['model'] = model
 	os.makedirs(f"{result_path}", exist_ok=True)
 	df_test_ci.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)

@@ -10,9 +10,9 @@
 #SBATCH --error=logs/error-sbatchjob.%J.err
 #SBATCH --output=logs/out-sbatchjob.%J.out
 
-source activate /home/jlemmon/.conda/envs/tl
+source activate /local-scratch/nigam/envs/jlemmon/conl #/home/jlemmon/.conda/envs/tl
 
-cd /labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
+cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts#/labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
 
 # make log folders if not exist
 #mkdir -p ../logs/train_lr
@@ -88,7 +88,7 @@ function pipe {
 			   --cohort_path="$2" \
 			   --hparam_path="$3" \
 			   --model_path="$4" \
-			   --result_path="$5"#\
+			   --result_path="$5" #\
 			   #>> "../logs/test_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
 		let k+=1
 		[[ $((k%N_TASKS)) -eq 0 ]] && wait
@@ -102,7 +102,9 @@ function pipe {
 # execute $N_JOBS pipes in parallel
 c=0
         
-pipe "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/bin_features" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/cohort" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/hyperparams" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/models" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/results"  &
+#pipe "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/bin_features" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/cohort" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/hyperparams" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/models" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/results"  &
+
+pipe "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/bin_features" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/cohort" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/hyperparams" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/results"  &
 
 let c+=1
 [[ $((c%N_JOBS)) -eq 0 ]] && wait
