@@ -11,10 +11,11 @@ import time
 import pandas as pd
 import numpy as np
 import scipy.sparse as sp
+import lightgbm as gbm
 
 from scipy.sparse import csr_matrix as csr
-from sklearn.linear_model import LogisticRegression as lr
 from sklearn.model_selection import ParameterGrid
+#from lightgbm import LGBMClassifier as gbm
 
 from prediction_utils.util import str2bool
 from prediction_utils.pytorch_utils.metrics import StandardEvaluator
@@ -89,6 +90,7 @@ parser.add_argument(
 	default=1000
 )
 
+
 parser.add_argument(
 	'--seed',
 	type=int,
@@ -131,15 +133,31 @@ def load_data(args):
 	
 	cohort = cohort.merge(test_rows, how='left', on='prediction_id')
 	cohort['test_row_idx'] = cohort['test_row_idx'].fillna(-1).astype(int)
+	
+	fn = f'{args.bin_path}/pediatric'
+	
+	train_feats = sp.load_npz(f'{fn}/train/pediatric_feats.npz')
+	train_rows = pd.read_csv(f'{fn}/train/train_pred_id_map.csv')
+	
+	cohort = cohort.merge(train_rows, how='left', on='prediction_id')
+	cohort['train_row_idx'] = cohort['train_row_idx'].fillna(-1).astype(int)
 
-	return test_feats, cohort
+	return train_feats, test_feats, cohort
 
 def get_labels(args, task, cohort):
-	test_cohort = cohort.query(f'test_row_idx>=0 and {task}_fold_id!="ignore"').sort_values(by='test_row_idx') 
-	return test_cohort[['prediction_id', 'test_row_idx', f'{task}']]
+	train_cohort = cohort.query(f'train_row_idx>=0 and {args.task}_fold_id!="ignore"').sort_values(by='train_row_idx')
+	train_labels = train_cohort[['prediction_id', 'train_row_idx', f'{args.task}']]
+	
+	test_cohort = cohort.query(f'test_row_idx>=0 and {args.task}_fold_id!="ignore"').sort_values(by='test_row_idx')
+	test_labels = test_cohort[['prediction_id', 'test_row_idx', f'{args.task}']]
+	
+	return train_labels, test_labels
 
-def eval_model(args, task, model_path, result_path, X_test, y_test, hp, model):
-	m = pickle.load(open(f'{model_path}/model.pkl', 'rb'))
+def finetune_model(args, task, model_path, X_train, y_train, hp):
+	m = gbm.train(params, train_data, num_boost_round = 10, init_model=f'{model_path}/model.pkl')
+
+	
+def eval_model(args, task, m, model_path, result_path, X_test, y_test, hp, model):
 	evaluator = StandardEvaluator(metrics=['auc','auprc','auprc_c','loss_bce','ace_abs_logistic_logit'])
 
 	df = pd.DataFrame({
@@ -159,14 +177,23 @@ def eval_model(args, task, model_path, result_path, X_test, y_test, hp, model):
 		patient_id_var='prediction_id',
 		return_result_df = True
 	)
+	os.makedirs(f"results_save_fpath/{hp['C'] if model == 'lr' else hp['alpha']}",exist_ok=True)
 	
 	if model == 'lr':
 		df_test['C'] = hp['C']
 	elif model == 'sgd':
 		df_test['alpha'] = hp['alpha']
-	df_test['model'] = model
+		
+	df_test['model'] = model + '_ft'
 	os.makedirs(f"{result_path}", exist_ok=True)
 	df_test_ci.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
+	
+	with open(f'{model_path}/model.pkl', 'wb') as pkl_file:
+		pickle.dump(model, pkl_file)
+		
+	with open(f'{model_path}/hp.yml','w') as file:
+		yaml.dump(hp, file)
+	
 
 
 #-------------------------------------------------------------------
@@ -183,14 +210,15 @@ np.random.seed(args.seed)
 # parse tasks and train_group
 task = args.task
 
-test_data, cohort = load_data(args)
+train_data, test_data, cohort = load_data(args)
 
 
 print(f"task: {task}")
 
-test_labels= get_labels(args, task, cohort)
+train_labels, test_labels= get_labels(args, task, cohort)
+train_X = train_data[list(train_labels['train_row_idx'])]
 test_X = test_data[list(test_labels['test_row_idx'])]
-for model in ['lr']:
+for model in ['gbm']:
 	for cohort_type in ['pediatric', 'adult']:
 		print(f"cohort type: {cohort_type}")
 		for feat_group in ['pediatric', 'shared', 'adult']:
@@ -198,8 +226,15 @@ for model in ['lr']:
 			model_path = f'{args.model_path}/{cohort_type}/{model}/{task}/{feat_group}_feats/best'
 			hp = get_model_hp(model_path)
 			print(hp)
-			result_path = f'{args.result_path}/{cohort_type}/{model}/{task}/{feat_group}_feats/best'
-			eval_model(args, task, model_path, result_path, test_X, test_labels, hp, model)
+			ft_model = finetune_model(args, task, model_path, train_X, train_labels, hp)
+			
+			ft_model_path = f'{args.model_path}/{cohort_type}/{model}_ft/{task}/{feat_group}_feats/best'
+			os.makedirs(ft_model_path,exist_ok=True)
+			
+			ft_result_path = f'{args.result_path}/{cohort_type}/{model}_ft/{task}/{feat_group}_feats/best'
+			os.makedirs(ft_result_path,exist_ok=True)
+			
+			eval_model(args, task, ft_model, ft_model_path, ft_result_path, test_X, test_labels, hp, model)
 
 
 

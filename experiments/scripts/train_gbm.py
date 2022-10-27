@@ -5,7 +5,8 @@ import os
 import argparse
 import pickle
 import yaml
-from sklearn.linear_model import SGDClassifier, LogisticRegression
+
+from lightgbm import LGBMClassifier as gbm
 from sklearn.model_selection import ParameterGrid
 from sklearn.metrics import log_loss
 
@@ -66,10 +67,11 @@ parser.add_argument(
 )
 
 parser.add_argument(
-	'--model',
-	type=str,
-	default='sgd'
+	'--n_jobs',
+	type=int,
+	default=1
 )
+
 
 def read_file(filename, columns=None, **kwargs):
 	'''
@@ -109,35 +111,22 @@ def load_data(args):
 	return train_feats, val_feats, cohort
 
 def get_model(args, hp):
-	# Create LR model using SGDClassifier so that partial_fit() can be called later for transfer 
-	# learning (finetuning) purposes.
-	if args.model == 'sgd':
-		return SGDClassifier(
-						loss = hp['loss'], 
-						random_state = hp['random_state'], 
-						alpha = hp['alpha'], 
-						penalty = hp['penalty'], 
-						max_iter = hp['max_iter'],
-						verbose = args.verbose
-					)
-	elif args.model == 'lr':
-		return LogisticRegression(
-						random_state = hp['random_state'], 
-						C = hp['C'], 
-						max_iter = 2000,
-						warm_start = True 
-		)
+	# Create lightGBM model
+	return gbm(
+                n_jobs=args.n_jobs, 
+                **hp
+            )
 
 def train_model(args, hp, train_X, train_labels, val_X, val_labels):
 	print('Initialized model with hyperparams:')
 	print(hp)
-	model_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"] if args.model == "lr" else hp["alpha"]}'
+	model_save_path = f'{args.model_path}/{args.cohort_type}/gbm/{args.task}/{args.feat_group}_feats/lr_{hp["learning_rate"]}_nl_{hp["num_leaves"]}_bt_{hp["boosting_type"]}'
 	os.makedirs(model_save_path,exist_ok=True)
 
 	model = get_model(args, hp)
-
+	
 	print('Training...')
-	model.fit(train_X, list(train_labels[args.task]))
+	model.fit(train_X, np.array(list(train_labels[args.task])).astype(np.float32))
 
 	with open(f'{model_save_path}/model.pkl', 'wb') as pkl_file:
 		pickle.dump(model, pkl_file)
@@ -167,7 +156,7 @@ if __name__ == '__main__':
 		ParameterGrid(   
 			yaml.load(
 				open(
-					f"{os.path.join(args.hparam_path,f'{args.model}')}.yml",
+					f"{os.path.join(args.hparam_path,'gbm')}.yml",
 					'r'
 				),
 				Loader=yaml.FullLoader
@@ -179,9 +168,9 @@ if __name__ == '__main__':
 	
 	print(f'Training models for {args.task} task...')
 	train_labels, val_labels = get_labels(args, args.task, cohort)
-	train_X = train_data[list(train_labels['train_row_idx'])]
-	val_X = val_data[list(val_labels['val_row_idx'])]
-	best_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/best'
+	train_X = train_data[list(train_labels['train_row_idx'])].astype(np.float32)
+	val_X = val_data[list(val_labels['val_row_idx'])].astype(np.float32)
+	best_save_path = f'{args.model_path}/{args.cohort_type}/gbm/{args.task}/{args.feat_group}_feats/best'
 	os.makedirs(best_save_path, exist_ok=True)
 	best_model = None
 	best_loss = 999999999

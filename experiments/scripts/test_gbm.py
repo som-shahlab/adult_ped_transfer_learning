@@ -13,8 +13,8 @@ import numpy as np
 import scipy.sparse as sp
 
 from scipy.sparse import csr_matrix as csr
-from sklearn.linear_model import LogisticRegression as lr
 from sklearn.model_selection import ParameterGrid
+from lightgbm import LGBMClassifier as gbm
 
 from prediction_utils.util import str2bool
 from prediction_utils.pytorch_utils.metrics import StandardEvaluator
@@ -138,13 +138,13 @@ def get_labels(args, task, cohort):
 	test_cohort = cohort.query(f'test_row_idx>=0 and {task}_fold_id!="ignore"').sort_values(by='test_row_idx') 
 	return test_cohort[['prediction_id', 'test_row_idx', f'{task}']]
 
-def eval_model(args, task, model_path, result_path, X_test, y_test, hp, model):
+def eval_model(args, task, model_path, result_path, X_test, y_test, hp):
 	m = pickle.load(open(f'{model_path}/model.pkl', 'rb'))
 	evaluator = StandardEvaluator(metrics=['auc','auprc','auprc_c','loss_bce','ace_abs_logistic_logit'])
 
 	df = pd.DataFrame({
 		'pred_probs':m.predict_proba(X_test)[:,1],
-		'labels':list(y_test[f'{task}'].values),
+		'labels':np.array(list(train_labels[args.task].values)).astype(np.float32),
 		'task':task,
 		'test_group':'test',
 		'prediction_id':list(test_labels['prediction_id'].values)
@@ -160,11 +160,10 @@ def eval_model(args, task, model_path, result_path, X_test, y_test, hp, model):
 		return_result_df = True
 	)
 	
-	if model == 'lr':
-		df_test['C'] = hp['C']
-	elif model == 'sgd':
-		df_test['alpha'] = hp['alpha']
-	df_test['model'] = model
+	df_test['lr'] = hp['learning_rate']
+	df_test['num_leaves'] = hp['num_leaves']
+	df_test['boosting_type'] = hp['boosting_type']
+	df_test['model'] = 'gbm'
 	os.makedirs(f"{result_path}", exist_ok=True)
 	df_test_ci.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
 
@@ -189,17 +188,16 @@ test_data, cohort = load_data(args)
 print(f"task: {task}")
 
 test_labels= get_labels(args, task, cohort)
-test_X = test_data[list(test_labels['test_row_idx'])]
-for model in ['lr']:
-	for cohort_type in ['pediatric', 'adult']:
-		print(f"cohort type: {cohort_type}")
-		for feat_group in ['pediatric', 'shared', 'adult']:
-			print(f"feature set: {feat_group}")
-			model_path = f'{args.model_path}/{cohort_type}/{model}/{task}/{feat_group}_feats/best'
-			hp = get_model_hp(model_path)
-			print(hp)
-			result_path = f'{args.result_path}/{cohort_type}/{model}/{task}/{feat_group}_feats/best'
-			eval_model(args, task, model_path, result_path, test_X, test_labels, hp, model)
+test_X = test_data[list(test_labels['test_row_idx'])].astype(np.float32)
+for cohort_type in ['pediatric', 'adult']:
+	print(f"cohort type: {cohort_type}")
+	for feat_group in ['pediatric', 'shared', 'adult']:
+		print(f"feature set: {feat_group}")
+		model_path = f'{args.model_path}/{cohort_type}/gbm/{task}/{feat_group}_feats/best'
+		hp = get_model_hp(model_path)
+		print(hp)
+		result_path = f'{args.result_path}/{cohort_type}/gbm/{task}/{feat_group}_feats/best'
+		eval_model(args, task, model_path, result_path, test_X, test_labels, hp)
 
 
 
