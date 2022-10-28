@@ -113,7 +113,7 @@ parser.add_argument(
 parser.add_argument(
     '--overwrite',
     type=str2bool,
-    default='false'
+    default='true'
 )
 
 parser.add_argument(
