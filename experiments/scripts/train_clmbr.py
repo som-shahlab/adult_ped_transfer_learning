@@ -221,7 +221,7 @@ if __name__ == "__main__":
 			'--epochs', f"{hparams['epochs']}",
 			'--l2', f"{hparams['l2']}",
 			'--warmup_epochs', f"{hparams['warmup_epochs']}",
-			'--device', f'{args.device}',
+			'--device', f'{args.device}'
 		]
         
 		processes.append(p_args)

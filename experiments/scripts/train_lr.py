@@ -68,7 +68,7 @@ parser.add_argument(
 parser.add_argument(
 	'--model',
 	type=str,
-	default='sgd'
+	default='lr'
 )
 
 def read_file(filename, columns=None, **kwargs):
@@ -109,29 +109,17 @@ def load_data(args):
 	return train_feats, val_feats, cohort
 
 def get_model(args, hp):
-	# Create LR model using SGDClassifier so that partial_fit() can be called later for transfer 
-	# learning (finetuning) purposes.
-	if args.model == 'sgd':
-		return SGDClassifier(
-						loss = hp['loss'], 
-						random_state = hp['random_state'], 
-						alpha = hp['alpha'], 
-						penalty = hp['penalty'], 
-						max_iter = hp['max_iter'],
-						verbose = args.verbose
-					)
-	elif args.model == 'lr':
-		return LogisticRegression(
-						random_state = hp['random_state'], 
-						C = hp['C'], 
-						max_iter = 2000,
-						warm_start = True 
-		)
+	return LogisticRegression(
+					random_state = hp['random_state'], 
+					C = hp['C'], 
+					max_iter = 2000,
+					warm_start = True 
+	)
 
 def train_model(args, hp, train_X, train_labels, val_X, val_labels):
 	print('Initialized model with hyperparams:')
 	print(hp)
-	model_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"] if args.model == "lr" else hp["alpha"]}'
+	model_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
 	os.makedirs(model_save_path,exist_ok=True)
 
 	model = get_model(args, hp)

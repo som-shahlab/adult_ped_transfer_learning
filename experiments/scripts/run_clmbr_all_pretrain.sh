@@ -18,9 +18,9 @@ TRAIN_OVERWRITE='False'
 FEATURIZE_OVERWRITE='False'
 EARLY_STOPPING='True'
 
-N_GPU=2
-GPU_NUM_START=4
-N_JOBS=8
+N_GPU=3
+GPU_NUM_START=5
+N_JOBS=3
 
 # generate job id
 JOB_ID=$(cat /proc/sys/kernel/random/uuid)
@@ -40,6 +40,6 @@ for (( t=0; t<$N_GROUPS; t++ )); do
 			--encoder=${ENCODERS[$i]} \
 			--n_gpu="$N_GPU" \
 			--n_jobs="$N_JOBS" \
-			--gpu_num_start="$GPU_NUM_START" \
+			--gpu_num_start="$GPU_NUM_START" 
     done
 done

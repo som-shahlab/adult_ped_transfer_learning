@@ -3,12 +3,17 @@ import argparse
 import pickle
 import joblib
 import pdb
+import warnings
 
 import pandas as pd
 import numpy as np
 import itertools
 
+from prediction_utils.util import str2bool
 from sklearn.model_selection import KFold
+from sepsis_labeler.labeler import SepsisLabeler
+
+warnings.filterwarnings("ignore")
 
 #------------------------------------
 # Arg parser
@@ -29,7 +34,7 @@ parser.add_argument(
 	"--tasks",
 	nargs='+',
 	type=str ,
-	default=['hospital_mortality','LOS_7','readmission_30','icu_admission','aki1_label','aki2_label','hg_label','np_500_label','np_1000_label'],
+	default=['hospital_mortality','sepsis','LOS_7','readmission_30','icu_admission','aki1_label','aki2_label','hg_label','np_500_label','np_1000_label'],
 	help="List of tasks to predict"
 )
 
@@ -82,6 +87,19 @@ parser.add_argument(
 	help='End date of test ids.'
 )
 
+parser.add_argument(
+	'--add_sepsis_label',
+	type=str2bool,
+	default=False
+)
+
+parser.add_argument(
+	'--cohort_table_name',
+	type=str,
+	default="tl_admission_rollup_filtered_temp"
+
+)
+
 #------------------------------------
 # Helper funs
 #------------------------------------
@@ -93,6 +111,26 @@ def read_file(filename, columns=None, **kwargs):
 	elif load_extension == ".csv":
 		return pd.read_csv(filename, usecols=columns, **kwargs)
 
+def add_sepsis_label(args, cohort, patient_col='person_id'):
+	config_dict = {
+		"dataset_project": "som-nero-nigam-starr",
+		"rs_dataset_project": "som-nero-nigam-starr",
+		"dataset": "starr_omop_cdm5_deid_2022_08_01",
+		"rs_dataset": "jlemmon_explore",
+		"cohort_name": args.cohort_table_name,
+		"ext_flwsht_table":"meas_vals_json",
+		"print_query": False,
+		"save_to_database":False,
+		"replace_cohort":False,
+		"pre_existing_cohort":True,
+	}
+	
+	sl = SepsisLabeler(**config_dict)
+	#df = sl.create_labels()
+	df = sl.create_labelled_cohort()
+	df = df[['person_id', 'sepsis', 'sepsis_index_date']]
+	return cohort.merge(df, on='person_id', how='left')
+	
 def split_cohort(
 		args,
 		df,
@@ -138,7 +176,7 @@ def split_cohort(
 	adult_at_admission = [0, 1]
 	years = train['admission_year'].unique()
 
-	for pair in list(itertools.product(adult_at_admission, years)): #get product of years * age_groups -> itertools
+	for pair in list(itertools.product(adult_at_admission, years)): 
 		itrain = train.query(f"adult_at_admission==@pair[0] and admission_year==@pair[1]")
 		c=0
 		for _, val_ids in kf.split(itrain[patient_col]):
@@ -194,6 +232,10 @@ def split_cohort(
 			# remove np_500 before midnight
 			cohort.loc[cohort['np_1000_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
 			cohort.loc[cohort['np_1000_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
+		if task == 'sepsis':
+			# remove sepsis before midnight
+			cohort.loc[cohort['sepsis_index_date']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+			cohort.loc[cohort['sepsis_index_date']<=cohort['admit_date_midnight'],f'{task}']=np.nan
 	return cohort.sort_index()
 
 #-------------------------------------------------------------------
@@ -211,6 +253,10 @@ if __name__ == "__main__":
 		),
 		engine='pyarrow'
 	)
+	
+	if args.add_sepsis_label:
+		cohort = add_sepsis_label(args, cohort)
+	
 	# split cohort
 	cohort = split_cohort(
 		args,
