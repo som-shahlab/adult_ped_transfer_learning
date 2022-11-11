@@ -23,7 +23,7 @@ cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts #
 ## -----------------------------------------------------------
 COHORT_TYPES=("pediatric" "adult")
 FEAT_GROUPS=("shared" "pediatric" "adult")
-TASKS=('hospital_mortality' 'LOS_7' 'readmission_30' 'icu_admission' 'aki1_label' 'aki2_label' 'hg_label' 'np_500_label' 'np_1000_label')
+TASKS=('hospital_mortality' 'sepsis' 'LOS_7' 'readmission_30' 'icu_admission' 'aki1_label' 'aki2_label' 'hg_label' 'np_500_label' 'np_1000_label')
 N_BOOT=1000
 
 # number of pipes to execute in parallel

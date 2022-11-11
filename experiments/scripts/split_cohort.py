@@ -137,7 +137,7 @@ def split_cohort(
 		seed,
 		patient_col='person_id',
 		index_year='admission_year',
-		tasks=['hospital_mortality','LOS_7','readmission_30','icu_admission', 'aki1_label','aki2_label','hg_label','np_500_label','np_1000_label'],
+		tasks=['hospital_mortality','sepsis','LOS_7','readmission_30','icu_admission', 'aki1_label','aki2_label','hg_label','np_500_label','np_1000_label'],
 		val_frac=0.15,
 		test_frac=0.15,
 		nfold=5

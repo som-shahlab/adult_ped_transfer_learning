@@ -15,7 +15,7 @@ import lightgbm as gbm
 
 from scipy.sparse import csr_matrix as csr
 from sklearn.model_selection import ParameterGrid
-#from lightgbm import LGBMClassifier as gbm
+from lightgbm import LGBMClassifier as gbm
 
 from prediction_utils.util import str2bool
 from prediction_utils.pytorch_utils.metrics import StandardEvaluator
@@ -55,21 +55,9 @@ parser.add_argument(
 )
 
 parser.add_argument(
-	'--cohort_type',
-	type=str,
-	default='pediatric'
-)
-
-parser.add_argument(
 	'--task',
 	type=str,
 	default='hospital_mortality'
-)
-
-parser.add_argument(
-	'--feat_group',
-	type=str,
-	default='shared'
 )
 
 parser.add_argument(
@@ -90,11 +78,10 @@ parser.add_argument(
 	default=1000
 )
 
-
 parser.add_argument(
 	'--seed',
 	type=int,
-	default='26'
+	default='44'
 )
 
 
@@ -177,14 +164,13 @@ def eval_model(args, task, m, model_path, result_path, X_test, y_test, hp, model
 		patient_id_var='prediction_id',
 		return_result_df = True
 	)
-	os.makedirs(f"results_save_fpath/{hp['C'] if model == 'lr' else hp['alpha']}",exist_ok=True)
+	os.makedirs(f"results_save_fpath/lr_{hp["learning_rate"]}_nl_{hp["num_leaves"]}_bt_{hp["boosting_type"]}",exist_ok=True)
 	
-	if model == 'lr':
-		df_test['C'] = hp['C']
-	elif model == 'sgd':
-		df_test['alpha'] = hp['alpha']
+	df_test['lr'] = hp['learning_rate']
+	df_test['leaves'] = hp['num_leaves']
+	df_test['type'] = hp['boosting_type']
 		
-	df_test['model'] = model + '_ft'
+	df_test['model'] = 'gbm_ft'
 	os.makedirs(f"{result_path}", exist_ok=True)
 	df_test_ci.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
 	
@@ -218,23 +204,22 @@ print(f"task: {task}")
 train_labels, test_labels= get_labels(args, task, cohort)
 train_X = train_data[list(train_labels['train_row_idx'])]
 test_X = test_data[list(test_labels['test_row_idx'])]
-for model in ['gbm']:
-	for cohort_type in ['pediatric', 'adult']:
-		print(f"cohort type: {cohort_type}")
-		for feat_group in ['pediatric', 'shared', 'adult']:
-			print(f"feature set: {feat_group}")
-			model_path = f'{args.model_path}/{cohort_type}/{model}/{task}/{feat_group}_feats/best'
-			hp = get_model_hp(model_path)
-			print(hp)
-			ft_model = finetune_model(args, task, model_path, train_X, train_labels, hp)
-			
-			ft_model_path = f'{args.model_path}/{cohort_type}/{model}_ft/{task}/{feat_group}_feats/best'
-			os.makedirs(ft_model_path,exist_ok=True)
-			
-			ft_result_path = f'{args.result_path}/{cohort_type}/{model}_ft/{task}/{feat_group}_feats/best'
-			os.makedirs(ft_result_path,exist_ok=True)
-			
-			eval_model(args, task, ft_model, ft_model_path, ft_result_path, test_X, test_labels, hp, model)
+for cohort_type in ['pediatric', 'adult']:
+	print(f"cohort type: {cohort_type}")
+	for feat_group in ['pediatric', 'shared', 'adult']:
+		print(f"feature set: {feat_group}")
+		model_path = f'{args.model_path}/{cohort_type}/gbm/{task}/{feat_group}_feats/best'
+		hp = get_model_hp(model_path)
+		print(hp)
+		ft_model = finetune_model(args, task, model_path, train_X, train_labels, hp)
+
+		ft_model_path = f'{args.model_path}/{cohort_type}/gbm_ft/{task}/{feat_group}_feats/best'
+		os.makedirs(ft_model_path,exist_ok=True)
+
+		ft_result_path = f'{args.result_path}/{cohort_type}/gbm_ft/{task}/{feat_group}_feats/best'
+		os.makedirs(ft_result_path,exist_ok=True)
+
+		eval_model(args, task, ft_model, ft_model_path, ft_result_path, test_X, test_labels, hp)
 
 
 
