@@ -10,9 +10,11 @@
 #SBATCH --error=logs/error-sbatchjob.%J.err
 #SBATCH --output=logs/out-sbatchjob.%J.out
 
-source activate /local-scratch/nigam/envs/jlemmon/conl #/home/jlemmon/.conda/envs/tl
+#source activate /local-scratch/nigam/envs/jlemmon/conl 
+source activate /home/jlemmon/.conda/envs/tl
 
-cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts #/labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
+#cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts 
+cd /labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
 
 # make log folders if not exist
 #mkdir -p ../logs/train_lr
@@ -51,34 +53,53 @@ function pipe {
 
     # Training LR models
     # executes $N_TASK jobs in parallel
-    echo "TRAINING MODELS..."
-    local k=0
-    for (( ij=0; ij<$N_COHORTS; ij++ )); do
-    	for (( g=0; g<$N_GROUPS; g++)); do
-        	for (( t=0; t<$N_TASKS; t++ )); do
+    #echo "TRAINING MODELS..."
+    #local k=0
+   # for (( ij=0; ij<$N_COHORTS; ij++ )); do
+  #  	for (( g=0; g<$N_GROUPS; g++)); do
 
-				python -u train_gbm.py \
-					--task=${TASKS[$t]} \
-					--cohort_type=${COHORT_TYPES[$ij]} \
-					--feat_group=${FEAT_GROUPS[$g]} \
-					--bin_path="$1" \
-					--cohort_path="$2" \
-					--hparam_path="$3" \
-					--model_path="$4" \
-					--results_path="$5" #\
-					#>> "../logs/train_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
-
-				let k+=1
-				[[ $((k%N_TASKS)) -eq 0 ]] && wait
-	        done
-        done
-    done
-    echo "EVALUATING MODELS..."
+ #       	for (( t=0; t<$N_TASKS; t++ )); do
+#
+#				python -u train_gbm.py \
+#					--task=${TASKS[$t]} \
+#					--cohort_type=${COHORT_TYPES[$ij]} \
+#					--feat_group=${FEAT_GROUPS[$g]} \
+#					--bin_path="$1" \
+#					--cohort_path="$2" \
+#					--hparam_path="$3" \
+#					--model_path="$4" \
+#					--results_path="$5" #\
+#					#>> "../logs/train_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
+#
+#
+#				let k+=1
+#				[[ $((k%N_TASKS)) -eq 0 ]] && wait
+#	        done
+    #    done
+    #done
+    #echo "EVALUATING MODELS..."
     # evaluate models
+    # executes $N_TASK jobs in parallel
+  #  local k=0
+ #   for (( t=0; t<$N_TASKS; t++ )); do
+#		python -u test_gbm.py \
+#			   --task=${TASKS[$t]} \
+#			   --bin_path="$1" \
+#			   --cohort_path="$2" \
+#			   --hparam_path="$3" \
+#			   --model_path="$4" \
+#			   --result_path="$5" #\
+#			   #>> "../logs/test_lr/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
+#		let k+=1
+#		[[ $((k%N_TASKS)) -eq 0 ]] && wait
+   #  done
+
+    echo "FINETUNING MODELS..."
+    # finetune models
     # executes $N_TASK jobs in parallel
     local k=0
     for (( t=0; t<$N_TASKS; t++ )); do
-		python -u test_gbm.py \
+		python -u finetune_gbm.py \
 			   --task=${TASKS[$t]} \
 			   --bin_path="$1" \
 			   --cohort_path="$2" \
@@ -98,9 +119,9 @@ function pipe {
 # execute $N_JOBS pipes in parallel
 c=0
         
-#pipe "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/bin_features" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/cohort" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/hyperparams" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/models" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/results"  &
+pipe "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/bin_features" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/cohort" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/hyperparams" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/models" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/results"  &
 
-pipe "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/bin_features" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/cohort" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/hyperparams" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/results"  &
+#pipe "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/bin_features" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/cohort" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/hyperparams" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/results"  &
 
 let c+=1
 [[ $((c%N_JOBS)) -eq 0 ]] && wait

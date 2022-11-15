@@ -102,7 +102,7 @@ def read_file(filename, columns=None, **kwargs):
 def get_model_hp(model_path):
 	return yaml.safe_load(open(f"{model_path}/hp.yml"))
 
-def load_data(args):
+def load_data(args, feat_group):
 
 	cohort = read_file(
 			os.path.join(
@@ -112,17 +112,15 @@ def load_data(args):
 			engine='pyarrow'
 		)
 
-	fn = f'{args.bin_path}/{args.cohort_type}'
+	fn = f'{args.bin_path}/pediatric'
 
-	test_feats = sp.load_npz(f'{fn}/test/{args.feat_group}_feats.npz')
+	test_feats = sp.load_npz(f'{fn}/test/{feat_group}_feats.npz')
 	test_rows = pd.read_csv(f'{fn}/test/test_pred_id_map.csv')
 	
 	cohort = cohort.merge(test_rows, how='left', on='prediction_id')
 	cohort['test_row_idx'] = cohort['test_row_idx'].fillna(-1).astype(int)
-	
-	fn = f'{args.bin_path}/pediatric'
-	
-	train_feats = sp.load_npz(f'{fn}/train/pediatric_feats.npz')
+		
+	train_feats = sp.load_npz(f'{fn}/train/{feat_group}_feats.npz')
 	train_rows = pd.read_csv(f'{fn}/train/train_pred_id_map.csv')
 	
 	cohort = cohort.merge(train_rows, how='left', on='prediction_id')
@@ -172,7 +170,7 @@ def eval_model(args, task, m, model_path, result_path, X_test, y_test, hp):
 	df_test_ci.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
 	
 	with open(f'{model_path}/model.pkl', 'wb') as pkl_file:
-		pickle.dump(model, pkl_file)
+		pickle.dump(m, pkl_file)
 		
 	with open(f'{model_path}/hp.yml','w') as file:
 		yaml.dump(hp, file)
@@ -193,18 +191,20 @@ np.random.seed(args.seed)
 # parse tasks and train_group
 task = args.task
 
-train_data, test_data, cohort = load_data(args)
+
 
 print(f"task: {task}")
 
-train_labels, test_labels= get_labels(args, task, cohort)
-train_X = train_data[list(train_labels['train_row_idx'])]
-test_X = test_data[list(test_labels['test_row_idx'])]
-
-for cohort_type in ['pediatric', 'adult']:
+for cohort_type in ['adult']:
 	print(f"cohort type: {cohort_type}")
 	for feat_group in ['pediatric', 'shared', 'adult']:
 		print(f"feature set: {feat_group}")
+		train_data, test_data, cohort = load_data(args, feat_group)
+
+		train_labels, test_labels= get_labels(args, task, cohort)
+		train_X = train_data[list(train_labels['train_row_idx'])]
+		test_X = test_data[list(test_labels['test_row_idx'])]
+
 		model_path = f'{args.model_path}/{cohort_type}/lr/{task}/{feat_group}_feats/best'
 		hp = get_model_hp(model_path)
 		print(hp)

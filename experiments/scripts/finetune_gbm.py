@@ -16,6 +16,7 @@ import lightgbm as gbm
 from scipy.sparse import csr_matrix as csr
 from sklearn.model_selection import ParameterGrid
 from lightgbm import LGBMClassifier as gbm
+import lightgbm
 
 from prediction_utils.util import str2bool
 from prediction_utils.pytorch_utils.metrics import StandardEvaluator
@@ -103,7 +104,7 @@ def read_file(filename, columns=None, **kwargs):
 def get_model_hp(model_path):
 	return yaml.safe_load(open(f"{model_path}/hp.yml"))
 
-def load_data(args):
+def load_data(args, feat_group):
 
 	cohort = read_file(
 			os.path.join(
@@ -113,17 +114,15 @@ def load_data(args):
 			engine='pyarrow'
 		)
 
-	fn = f'{args.bin_path}/{args.cohort_type}'
+	fn = f'{args.bin_path}/pediatric'
 
-	test_feats = sp.load_npz(f'{fn}/test/{args.feat_group}_feats.npz')
+	test_feats = sp.load_npz(f'{fn}/test/{feat_group}_feats.npz')
 	test_rows = pd.read_csv(f'{fn}/test/test_pred_id_map.csv')
 	
 	cohort = cohort.merge(test_rows, how='left', on='prediction_id')
 	cohort['test_row_idx'] = cohort['test_row_idx'].fillna(-1).astype(int)
-	
-	fn = f'{args.bin_path}/pediatric'
-	
-	train_feats = sp.load_npz(f'{fn}/train/pediatric_feats.npz')
+		
+	train_feats = sp.load_npz(f'{fn}/train/{feat_group}_feats.npz')
 	train_rows = pd.read_csv(f'{fn}/train/train_pred_id_map.csv')
 	
 	cohort = cohort.merge(train_rows, how='left', on='prediction_id')
@@ -141,15 +140,18 @@ def get_labels(args, task, cohort):
 	return train_labels, test_labels
 
 def finetune_model(args, task, model_path, X_train, y_train, hp):
-	m = gbm.train(params, train_data, num_boost_round = 10, init_model=f'{model_path}/model.pkl')
+	m = pickle.load(open(f'{model_path}/model.pkl', 'rb'))
+	ft_m = gbm(n_jobs=args.n_jobs, **hp)
+	ft_m.fit(X=X_train.astype(np.float32), y=y_train[task].to_numpy(dtype=np.float32), init_model=m)
+	return ft_m
 
 	
-def eval_model(args, task, m, model_path, result_path, X_test, y_test, hp, model):
+def eval_model(args, task, m, model_path, result_path, X_test, y_test, hp):
 	evaluator = StandardEvaluator(metrics=['auc','auprc','auprc_c','loss_bce','ace_abs_logistic_logit'])
 
 	df = pd.DataFrame({
-		'pred_probs':m.predict_proba(X_test)[:,1],
-		'labels':list(y_test[f'{task}'].values),
+		'pred_probs':m.predict_proba(X_test.astype(np.float32))[:,1],
+		'labels':list(y_test[task].values),
 		'task':task,
 		'test_group':'test',
 		'prediction_id':list(test_labels['prediction_id'].values)
@@ -164,7 +166,7 @@ def eval_model(args, task, m, model_path, result_path, X_test, y_test, hp, model
 		patient_id_var='prediction_id',
 		return_result_df = True
 	)
-	os.makedirs(f"results_save_fpath/lr_{hp["learning_rate"]}_nl_{hp["num_leaves"]}_bt_{hp["boosting_type"]}",exist_ok=True)
+	os.makedirs(f'results_save_fpath/lr_{hp["learning_rate"]}_nl_{hp["num_leaves"]}_bt_{hp["boosting_type"]}',exist_ok=True)
 	
 	df_test['lr'] = hp['learning_rate']
 	df_test['leaves'] = hp['num_leaves']
@@ -175,7 +177,7 @@ def eval_model(args, task, m, model_path, result_path, X_test, y_test, hp, model
 	df_test_ci.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
 	
 	with open(f'{model_path}/model.pkl', 'wb') as pkl_file:
-		pickle.dump(model, pkl_file)
+		pickle.dump(m, pkl_file)
 		
 	with open(f'{model_path}/hp.yml','w') as file:
 		yaml.dump(hp, file)
@@ -196,18 +198,18 @@ np.random.seed(args.seed)
 # parse tasks and train_group
 task = args.task
 
-train_data, test_data, cohort = load_data(args)
-
-
 print(f"task: {task}")
 
-train_labels, test_labels= get_labels(args, task, cohort)
-train_X = train_data[list(train_labels['train_row_idx'])]
-test_X = test_data[list(test_labels['test_row_idx'])]
-for cohort_type in ['pediatric', 'adult']:
+for cohort_type in ['adult']:
 	print(f"cohort type: {cohort_type}")
 	for feat_group in ['pediatric', 'shared', 'adult']:
 		print(f"feature set: {feat_group}")
+		train_data, test_data, cohort = load_data(args, feat_group)
+
+		train_labels, test_labels= get_labels(args, task, cohort)
+		train_X = train_data[list(train_labels['train_row_idx'])]
+		test_X = test_data[list(test_labels['test_row_idx'])]
+
 		model_path = f'{args.model_path}/{cohort_type}/gbm/{task}/{feat_group}_feats/best'
 		hp = get_model_hp(model_path)
 		print(hp)

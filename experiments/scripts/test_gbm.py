@@ -144,7 +144,7 @@ def eval_model(args, task, model_path, result_path, X_test, y_test, hp):
 
 	df = pd.DataFrame({
 		'pred_probs':m.predict_proba(X_test)[:,1],
-		'labels':np.array(list(train_labels[args.task].values)).astype(np.float32),
+		'labels':np.array(list(y_test[args.task].values)).astype(np.float32),
 		'task':task,
 		'test_group':'test',
 		'prediction_id':list(test_labels['prediction_id'].values)
