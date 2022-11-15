@@ -12,8 +12,10 @@ dropout:
 batch_size:
 - 3000
 epochs:
-- 300
+- 1000
 warmup_epochs:
 - 2
 l2:
 - 0
+early_stopping_patience:
+- 50

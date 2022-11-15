@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
 	# patient IDs excluded from CLMBR pretraining
 	# this is for the pediatric only pretraining
-	ex_df=og_df.query("fold_id==['val','test'] | adult_at_admission==1")[['person_id','admit_date','discharge_date']]
+	ex_df = og_df.query("fold_id==['val','test'] | adult_at_admission==1")[['person_id','admit_date','discharge_date']]
 	ex_df = ex_df[ex_df['person_id'] != 86281596]
 	ex_df['date']=pd.to_datetime(ex_df['admit_date']).dt.date
 

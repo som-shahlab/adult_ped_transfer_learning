@@ -40,6 +40,7 @@ for (( t=0; t<$N_GROUPS; t++ )); do
 			--encoder=${ENCODERS[$i]} \
 			--n_gpu="$N_GPU" \
 			--n_jobs="$N_JOBS" \
-			--gpu_num_start="$GPU_NUM_START" 
+			--gpu_num_start="$GPU_NUM_START" \
+			--early_stopping
     done
 done

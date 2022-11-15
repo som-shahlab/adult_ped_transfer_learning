@@ -77,7 +77,7 @@ parser.add_argument(
 parser.add_argument(
     '--labelled_fpath',
     type=str,
-    default="/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/labelled_data",
+    default="/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/clmbr_labelled_data",
     help='Base path for labelled data directory'
 )
 
@@ -219,11 +219,11 @@ class EarlyStopping():
 		return self.early_stop
 		
 		
-def load_datasets(args, task, hp, clmbr_model_path):
+def load_datasets(args, task, cohort_type, clmbr_model_path):
 	"""
 	Load datasets from split csv files.
 	"""
-	data_path = f'{args.labelled_fpath}/{task}/pretrained/{hp["encoder"]}_sz_{hp["size"]}_do_{hp["dropout"]}_lr_{hp["lr"]}_l2_{hp["l2"]}'
+	data_path = f'{args.labelled_fpath}/{task}/{cohort_type}'
 
 	train_pids = pd.read_csv(f'{data_path}/ehr_ml_patient_ids_train.csv')
 	val_pids = pd.read_csv(f'{data_path}/ehr_ml_patient_ids_val.csv')
@@ -375,7 +375,7 @@ if __name__ == '__main__':
 		ParameterGrid(
 			yaml.load(
 				open(
-					f"{os.path.join(args.hparams_fpath,args.encoder)}.yml",
+					f"{os.path.join(args.hparams_fpath,'gru')}.yml",
 					'r'
 				),
 				Loader=yaml.FullLoader
@@ -387,50 +387,53 @@ if __name__ == '__main__':
 	for task in tasks:
 		print(f'Task {task}')
 		
-		for hp in hps:
+		for cohort_type in ['mix', 'ped', 'ad', 'all']:
+		
+			for hp in hps:
 
-			# Path where CLMBR model is saved
-			pt_model_str = f'{hp["encoder"]}_sz_{hp["size"]}_do_{hp["dropout"]}_lr_{hp["lr"]}_l2_{hp["l2"]}'
-			clmbr_model_path = f'{args.pt_model_path}/{pt_model_str}'
-			print(clmbr_model_path)
+				# Path where CLMBR model is saved
+				pt_model_str = f'{gru_sz_{hp["size"]}_do_{hp["dropout"]}_lr_{hp["lr"]}_l2_{hp["l2"]}'
+				clmbr_model_path = f'{args.pt_model_path}/{cohort_type}/{pt_model_str}'
+				print(clmbr_model_path)
 
-			# Load  datasets
-			train_dataset, test_dataset = load_datasets(args, task, hp, clmbr_model_path)
+				# Load  datasets
+				train_dataset, test_dataset = load_datasets(args, task, cohort_type, clmbr_model_path)
 
-			# Path where CLMBR probe will be saved
-			probe_save_path = f'{args.probe_path}/{task}/pretrained/{pt_model_str}'
-			os.makedirs(f"{probe_save_path}",exist_ok=True)
+				# Path where CLMBR probe will be saved
+				probe_save_path = f'{args.probe_path}/{task}/pretrained/{cohort_type}/{pt_model_str}'
+				os.makedirs(f"{probe_save_path}",exist_ok=True)
 
-			result_save_path = f'{args.results_path}/{task}/pretrained/{pt_model_str}'
-			os.makedirs(f"{result_save_path}",exist_ok=True)
+				result_save_path = f'{args.results_path}/{task}/pretrained/{cohort_type}/{pt_model_str}'
+				os.makedirs(f"{result_save_path}",exist_ok=True)
 
-			# Load CLMBR model and attach linear probe
-			clmbr_model = ehr_ml.clmbr.CLMBR.from_pretrained(clmbr_model_path, args.device).to(args.device)
-			clmbr_model.freeze()
+				# Load CLMBR model and attach linear probe
+				clmbr_model = ehr_ml.clmbr.CLMBR.from_pretrained(clmbr_model_path, args.device).to(args.device)
+				clmbr_model.freeze()
 
-			probe_model = LinearProbe(clmbr_model, hp['size'])
+				probe_model = LinearProbe(clmbr_model, hp['size'])
 
-			probe_model.to(args.device)
+				probe_model.to(args.device)
 
-			print('Training probe...')
-			# Train probe and evaluate on validation 
-			probe_model, val_preds, val_labels, val_ids = train_probe(args, probe_model, train_dataset, probe_save_path)
+				print('Training probe...')
+				# Train probe and evaluate on validation 
+				probe_model, val_preds, val_labels, val_ids = train_probe(args, probe_model, train_dataset, probe_save_path)
 
-			val_df = pd.DataFrame({'CLMBR':'PT', 'model':'linear', 'task':task, 'phase':'val', 'person_id':val_ids, 'pred_probs':val_preds, 'labels':val_labels})
-			val_df.to_csv(f'{result_save_path}/val_preds.csv',index=False)
+				val_df = pd.DataFrame({'CLMBR':'PT', 'model':'linear', 'task':task, 'cohort_type':cohort_type, 'phase':'val', 'person_id':val_ids, 'pred_probs':val_preds, 'labels':val_labels})
+				val_df.to_csv(f'{result_save_path}/val_preds.csv',index=False)
 
-			print('Testing probe...')
-			test_preds, test_labels, test_ids = evaluate_probe(args, probe_model, test_dataset)
+				print('Testing probe...')
+				test_preds, test_labels, test_ids = evaluate_probe(args, probe_model, test_dataset)
 
-			test_df = pd.DataFrame({'CLMBR':'PT', 'model':'linear', 'task':task, 'phase':'test', 'person_id':test_ids, 'pred_probs':test_preds, 'labels':test_labels})
-			test_df.to_csv(f'{result_save_path}/test_preds.csv',index=False)
-			df_preds = pd.concat((val_df,test_df))
-			df_preds['CLMBR'] = df_preds['CLMBR'].astype(str)
-			df_preds['model'] = df_preds['model'].astype(str)
-			df_preds['task'] = df_preds['task'].astype(str)
-			df_preds['phase'] = df_preds['phase'].astype(str)
+				test_df = pd.DataFrame({'CLMBR':'PT', 'model':'linear', 'task':task, 'cohort_type':cohort_type, 'phase':'test', 'person_id':test_ids, 'pred_probs':test_preds, 'labels':test_labels})
+				test_df.to_csv(f'{result_save_path}/test_preds.csv',index=False)
+				df_preds = pd.concat((val_df,test_df))
+				df_preds['CLMBR'] = df_preds['CLMBR'].astype(str)
+				df_preds['model'] = df_preds['model'].astype(str)
+				df_preds['task'] = df_preds['task'].astype(str)
+				df_preds['cohort_type'] = cohort_type
+				df_preds['phase'] = df_preds['phase'].astype(str)
 
-			df_eval = calc_metrics(args, df_preds)
-			df_eval['CLMBR'] = 'PT'
-			df_eval['task'] = task
-			df_eval.to_csv(f'{result_save_path}/eval.csv',index=False)
+				df_eval = calc_metrics(args, df_preds)
+				df_eval['CLMBR'] = 'PT'
+				df_eval['task'] = task
+				df_eval.to_csv(f'{result_save_path}/eval.csv',index=False)

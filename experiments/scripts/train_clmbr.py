@@ -152,6 +152,12 @@ parser.add_argument(
 	default='mix'
 )
 
+parser.add_argument(
+	'--early_stopping',
+	type=bool,
+	action='store_true'
+)
+
 if __name__ == "__main__":
     
 	args = parser.parse_args()
@@ -221,7 +227,9 @@ if __name__ == "__main__":
 			'--epochs', f"{hparams['epochs']}",
 			'--l2', f"{hparams['l2']}",
 			'--warmup_epochs', f"{hparams['warmup_epochs']}",
-			'--device', f'{args.device}'
+			'--device', f'{args.device}',
+			'--early_stopping_patience', f"{hparams['early_stopping_patience']}",
+			'--early_stopping' if args.early_stopping==True else ''
 		]
         
 		processes.append(p_args)
