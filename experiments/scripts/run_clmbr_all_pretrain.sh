@@ -1,8 +1,8 @@
-#!/bin/bash
+conda #!/bin/bash
 
 # conda env
-source activate /local-scratch/nigam/envs/jlemmon/conl
-
+#source activate /local-scratch/nigam/envs/jlemmon/conl
+source activate /local-scratch/nigam/envs/lguo/temp_ds_shift_robustness
 # script dir
 cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts
 
@@ -10,7 +10,7 @@ cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts
 ## --------------------- job specification -------------------
 ## -----------------------------------------------------------
 
-mkdir -p ../logs/clmbr_pretrain
+#mkdir -p ../logs/clmbr_pretrain
 
 ENCODERS=("gru")
 PT_GROUPS=("all")

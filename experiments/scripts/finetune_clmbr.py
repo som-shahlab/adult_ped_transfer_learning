@@ -103,7 +103,7 @@ parser.add_argument(
 parser.add_argument(
     '--batch_size',
     type=int,
-    default=512,
+    default=128,
     help='Size of training batch.'
 )
 
@@ -149,20 +149,33 @@ parser.add_argument(
     help='Device to run torch model on.'
 )
 
-class MLPLayer(nn.Module):
-	"""
-	Linear classifier layer.
-	"""
-	def __init__(self, size):
+class LinearAdapter(nn.Module):
+	def __init__(self, clmbr_model, size, device='cuda:0'):
 		super().__init__()
-		self.dense = nn.Linear(size, size)
-		self.activation = nn.Tanh()
-		
-	def forward(self, features):
-		x = self.dense(features)
-		x = self.activation(x)
-		
-		return x
+		self.clmbr_model = clmbr_model
+		self.config = clmbr_model.config
+
+		self.dense = nn.Linear(size,1)
+		self.activation = nn.Sigmoid()
+
+		self.device = torch.device(device)
+
+	def forward(self, batch):
+		features = self.clmbr_model.timeline_model(batch['rnn']).to(self.device)
+
+		label_indices, label_values = batch['label']
+
+		flat_features = features.view((-1, features.shape[-1]))
+		target_features = F.embedding(label_indices, flat_features).to(self.device)
+
+		preds = self.activation(self.dense(target_features))
+		return preds, label_values.to(torch.float32)
+
+	def freeze_clmbr(self):
+		self.clmbr_model.freeze()
+
+	def unfreeze_clmbr(self):
+		self.clmbr_model.unfreeze()
 
 class EarlyStopping():
 	def __init__(self, patience):
@@ -180,9 +193,10 @@ class EarlyStopping():
 				self.early_stop = True
 		return self.early_stop
 
-def load_data(args, task):
+def load_data(args, task='hospital_mortality'):
 	"""
 	Load datasets from split csv files.
+	For inital finetunign any task works as the labels are ignored
 	"""
 
 	data_path = f'{args.labelled_fpath}/{task}/ped'
@@ -190,17 +204,25 @@ def load_data(args, task):
 	
 	train_pids = pd.read_csv(f'{data_path}/ehr_ml_patient_ids_train.csv')
 	val_pids = pd.read_csv(f'{data_path}/ehr_ml_patient_ids_val.csv')
+	test_pids = pd.read_csv(f'{data_path}/ehr_ml_patient_ids_test.csv')
 
 	train_days = pd.read_csv(f'{data_path}/day_indices_train.csv')
 	val_days = pd.read_csv(f'{data_path}/day_indices_val.csv')
+	test_days = pd.read_csv(f'{data_path}/day_indices_test.csv')
 
 	train_labels = pd.read_csv(f'{data_path}/labels_train.csv')
 	val_labels = pd.read_csv(f'{data_path}/labels_val.csv')
+	test_labels = pd.read_csv(f'{data_path}/labels_test.csv')
 
 	train_data = (train_labels.to_numpy().flatten(),train_pids.to_numpy().flatten(),train_days.to_numpy().flatten())
 	val_data = (val_labels.to_numpy().flatten(),val_pids.to_numpy().flatten(),val_days.to_numpy().flatten())
+	test_data = (test_labels.to_numpy().flatten(),test_pids.to_numpy().flatten(),test_days.to_numpy().flatten())
 
-	return train_data, val_data
+	train_data = (train_labels.to_numpy().flatten(),train_pids.to_numpy().flatten(),train_days.to_numpy().flatten())
+	val_data = (val_labels.to_numpy().flatten(),val_pids.to_numpy().flatten(),val_days.to_numpy().flatten())
+	test_data = (test_labels.to_numpy().flatten(),test_pids.to_numpy().flatten(),test_days.to_numpy().flatten())
+
+	return train_data, val_data, test_data
         
 def finetune_model(args, model, dataset, clmbr_save_path, clmbr_model_path):
 	"""
@@ -219,34 +241,31 @@ def finetune_model(args, model, dataset, clmbr_save_path, clmbr_model_path):
 		
 		model.train()
 		pat_info_df = pd.DataFrame()
-		model_train_loss_df = pd.DataFrame()
-		model_val_loss_df = pd.DataFrame()
-		train_loss = []
-		train_preds = []
-		train_lbls = []
+		
+		epoch_train_loss = 0.0
+		epoch_val_loss = 0.0
+		
 		with DataLoader(dataset, model.config['num_first'], is_val=False, batch_size=model.config["batch_size"], device=args.device) as train_loader:
 			for batch in tqdm(train_loader):
 				optimizer.zero_grad()
 				outputs = model(batch)
 
-				train_preds.extend(list(outputs['preds'].detach().clone().cpu().numpy()))
-				train_lbls.extend(list(outputs['labels'].detach().clone().cpu().numpy()))
 				loss = outputs["loss"]
 
 				loss.backward()
 				optimizer.step()
-				train_loss.append(loss.item())
-		print('Training loss:',  np.sum(train_loss))
+				epoch_train_loss += loss.item()
+		print('Training loss:',  epoch_train_loss)
+		
+		with torch.no_grad():
+			with DataLoader(dataset, model.config['num_first'], is_val=True, batch_size=model.config["batch_size"], device=args.device) as val_loader:
+				for batch in val_loader:
+					outputs = model(batch)
+					loss = outputs["loss"]
+					
+					epoch_val_loss += loss.item()
 
-		# evaluate on validation set
-		val_preds, val_lbls, val_losses = evaluate_model(args, model, dataset, e)
-		print('Validation loss:',  np.sum(val_losses))
-
-		# Save train and val model predictions/labels
-		df = pd.DataFrame({'epoch':e,'preds':train_preds,'labels':train_lbls})
-		df.to_csv(f'{clmbr_save_path}/{e}/train_preds.csv', index=False)
-		df = pd.DataFrame({'epoch':e,'preds':val_preds,'labels':val_lbls})
-		df.to_csv(f'{clmbr_save_path}/{e}/val_preds.csv', index=False)
+		print('Validation loss:',  epoch_val_loss)
 		
 		#save current epoch model
 		os.makedirs(f'{clmbr_save_path}/{e}',exist_ok=True)
@@ -256,8 +275,8 @@ def finetune_model(args, model, dataset, clmbr_save_path, clmbr_model_path):
 			json.dump(config,f)			
 		
 		#save model as best model if condition met
-		if scaled_val_loss < best_val_loss:
-			best_val_loss = scaled_val_loss
+		if epoch_val_loss < best_val_loss:
+			best_val_loss = epoch_val_loss
 			best_epoch = e
 			best_model = copy.deepcopy(model.clmbr_model)
 		
@@ -266,35 +285,30 @@ def finetune_model(args, model, dataset, clmbr_save_path, clmbr_model_path):
 			print(f'Early stopping at epoch {e}')
 			break
 	
-	pd.DataFrame({'loss':train_loss}).to_csv(f'{clmbr_save_path}/train_loss.csv', index=True)
-	pd.DataFrame({'loss':val_loss}).to_csv(f'{clmbr_save_path}/val_loss.csv', index=True)
-	
 	# save best epoch for debugging 
 	with open(f'{clmbr_save_path}/best_epoch.txt', 'w') as f:
 		f.write(f'{best_epoch}')
 		
 	return best_model, best_val_loss, best_epoch
 
-def evaluate_model(args, model, dataset, e):
+def evaluate_adapter(args, model, dataset):
 	model.eval()
-	
-	criterion = nn.CrossEntropyLoss()
-	
+
+	criterion = nn.BCELoss()
+
 	preds = []
 	lbls = []
-	losses = []
-	pat_info_df = pd.DataFrame()
+	ids = []
 	with torch.no_grad():
 		with DataLoader(dataset, model.config['num_first'], is_val=True, batch_size=model.config['batch_size'], seed=args.seed, device=args.device) as eval_loader:
-			for batch in tqdm(eval_loader):
-				outputs = model(batch)
-				loss = outputs["loss"]
-				losses.append(loss.item())
-				preds.extend(list(outputs['preds'].cpu().numpy()))
-				lbls.extend(list(outputs['labels'].cpu().numpy()))
-
-	
-	return preds, lbls, losses
+			for batch in eval_loader:
+				logits, labels = model(batch)
+				loss = criterion(logits, labels.unsqueeze(-1))
+				# losses.append(loss.item())
+				preds.extend(logits.cpu().numpy().flatten())
+				lbls.extend(labels.cpu().numpy().flatten())
+				ids.extend(batch['pid'])
+	return preds, lbls, ids
 
 def finetune(args, cl_hp, clmbr_model_path, dataset):
 	clmbr_model = ehr_ml.clmbr.CLMBR.from_pretrained(clmbr_model_path, args.device)
@@ -342,6 +356,8 @@ if __name__ == '__main__':
 
 	torch.manual_seed(args.seed)
 	
+	tasks = ['hospital_mortality','sepsis','LOS_7','readmission_30','icu_admission','aki1_label','aki2_label','hg_label','np_500_label','np_1000_label']
+	
 	clmbr_grid = list(
 		ParameterGrid(
 			yaml.load(
@@ -354,44 +370,92 @@ if __name__ == '__main__':
 		)
 	)
 
-	clmbr_model_path = f'{args.pt_model_path}/gru_sz_{clmbr_hp["size"]}_do_{clmbr_hp["dropout"]}_lr_{clmbr_hp["lr"]}_l2_{clmbr_hp["l2"]}'
-	print(clmbr_model_path)
-	best_val_loss = 9999999
-	best_params = None
 	
-	train_data, val_data = load_data(args, clmbr_hp)
+	train_data, val_data, test_data = load_ft_data(args)
+	
+	for cohort_type in ['ad', 'all']:
+	
+		for j, hp in enumerate(clmbr_grid):
+			clmbr_model_path = f'{args.pt_model_path}/{cohort_type}/gru_sz_{clmbr_hp["size"]}_do_{clmbr_hp["dropout"]}_lr_{clmbr_hp["lr"]}_l2_{clmbr_hp["l2"]}'
+			print(clmbr_model_path)
 
-	dataset = PatientTimelineDataset(args.extract_path + '/extract.db', 
-									 args.extract_path + '/ontology.db', 
-									 f'{clmbr_model_path}/info.json', 
-									 train_data, 
-									 val_data )
-	
-	for j, hp in enumerate(clmbr_grid):
-		print('finetuning model with params: ', cl_hp)
-		best_ft_path = f"{args.model_path}/gru_sz_{clmbr_hp['size']}_do_{clmbr_hp['dropout']}_lr_{clmbr_hp['lr']}_l2_{clmbr_hp['l2']}/best"
-		clmbr_save_path = f"{args.model_path}/gru_sz_{clmbr_hp['size']}_do_{clmbr_hp['dropout']}_lr_{clmbr_hp['lr']}_l2_{clmbr_hp['l2']}"
-		print(clmbr_save_path)
-	
-		os.makedirs(f"{clmbr_save_path}",exist_ok=True)
-	
-		
-		os.makedirs(f"{best_ft_path}",exist_ok=True)
-		
-		model, val_loss, best_epoch = finetune(args, cl_hp, clmbr_model_path, dataset)
-		
-		if val_loss < best_val_loss:
-			print('Saving as best finetuned model...')
-			best_val_loss = val_loss
-			best_params = cl_hp
+			train_dataset = PatientTimelineDataset(args.extract_path + '/extract.db', 
+										 args.extract_path + '/ontology.db', 
+										 f'{clmbr_model_path}/info.json', 
+										 train_data, 
+										 val_data )
 
+			test_dataset = PatientTimelineDataset(args.extract_path + '/extract.db', 
+										 args.extract_path + '/ontology.db', 
+										 f'{clmbr_model_path}/info.json', 
+										 train_data, 
+										 test_data )
+
+			print('finetuning model with params: ', hp)
+			best_ft_path = f"{args.ft_model_path}/{cohort_type}/gru_sz_{hp['size']}_do_{hp['dropout']}_lr_{clmbr_hp['lr']}_l2_{clmbr_hp['l2']}/best"
+			clmbr_save_path = f"{args.ft_model_path}/{cohort_type}/gru_sz_{hp['size']}_do_{hp['dropout']}_lr_{hp['lr']}_l2_{hp['l2']}"
+			print(f"saving to {clmbr_save_path}")
+
+			os.makedirs(f"{clmbr_save_path}",exist_ok=True)
+
+			os.makedirs(f"{best_ft_path}",exist_ok=True)
+
+			print("finetuning model")
+			model, val_loss, best_epoch = finetune(args, cl_hp, clmbr_model_path, train_dataset)
+
+			print('Saving finetuned model...')
 			torch.save(model.state_dict(), os.path.join(best_ft_path,'best'))
 			shutil.copyfile(f'{clmbr_model_path}/info.json', f'{best_ft_path}/info.json')
 			with open(f'{best_ft_path}/config.json', 'w') as f:
 				json.dump(model.config,f)
 			with open(f"{best_ft_path}/hyperparams.yml", 'w') as file: 
-				yaml.dump(best_params,file)
+				yaml.dump(hp,file)
 			with open(f'{best_ft_path}/best_epoch.txt', 'w') as f:
 				f.write(f'{best_epoch}')
-        
+			
+			#eval finetuned model on 
+			for task in tasks:
+				print("evaluating finetuned model on task {task}")
+				model.freeze()
+				adapter_model = LinearAdapter(model, hp['size'])
+
+				adapter_model.to(args.device)
+
+				train_data, val_data, test_data = load_ft_data(args, task)
+				
+				train_dataset = PatientTimelineDataset(args.extract_path + '/extract.db', 
+										 args.extract_path + '/ontology.db', 
+										 f'{clmbr_model_path}/info.json', 
+										 train_data, 
+										 val_data )
+
+				test_dataset = PatientTimelineDataset(args.extract_path + '/extract.db', 
+										 args.extract_path + '/ontology.db', 
+										 f'{clmbr_model_path}/info.json', 
+										 train_data, 
+										 test_data )
+
+				print('training adapter...')
+				# Train adapter and evaluate on validation 
+				adapter_model, val_preds, val_labels, val_ids = train_adapter(args, adapter_model, train_dataset, adapter_save_path)
+
+				val_df = pd.DataFrame({'CLMBR':'FT', 'model':'linear', 'task':task, 'cohort_type':cohort_type, 'phase':'val', 'person_id':val_ids, 'pred_probs':val_preds, 'labels':val_labels})
+				val_df.to_csv(f'{result_save_path}/val_preds.csv',index=False)
+
+				print('testing adapter...')
+				test_preds, test_labels, test_ids = evaluate_adapter(args, adapter_model, test_dataset)
+
+				test_df = pd.DataFrame({'CLMBR':'FT', 'model':'linear', 'task':task, 'cohort_type':cohort_type, 'phase':'test', 'person_id':test_ids, 'pred_probs':test_preds, 'labels':test_labels})
+				test_df.to_csv(f'{result_save_path}/test_preds.csv',index=False)
+				df_preds = pd.concat((val_df,test_df))
+				df_preds['CLMBR'] = df_preds['CLMBR'].astype(str)
+				df_preds['model'] = df_preds['model'].astype(str)
+				df_preds['task'] = df_preds['task'].astype(str)
+				df_preds['cohort_type'] = cohort_type
+				df_preds['phase'] = df_preds['phase'].astype(str)
+
+				df_eval = calc_metrics(args, df_preds)
+				df_eval['CLMBR'] = 'FT'
+				df_eval['task'] = task
+				df_eval.to_csv(f'{result_save_path}/eval.csv',index=False)
     
