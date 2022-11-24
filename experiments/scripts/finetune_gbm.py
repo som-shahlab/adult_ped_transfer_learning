@@ -166,7 +166,6 @@ def eval_model(args, task, m, model_path, result_path, X_test, y_test, hp):
 		patient_id_var='prediction_id',
 		return_result_df = True
 	)
-	os.makedirs(f'results_save_fpath/lr_{hp["learning_rate"]}_nl_{hp["num_leaves"]}_bt_{hp["boosting_type"]}',exist_ok=True)
 	
 	df_test['lr'] = hp['learning_rate']
 	df_test['leaves'] = hp['num_leaves']
@@ -217,7 +216,7 @@ for cohort_type in ['adult']:
 
 		ft_model_path = f'{args.model_path}/{cohort_type}/gbm_ft/{task}/{feat_group}_feats/best'
 		os.makedirs(ft_model_path,exist_ok=True)
-
+		
 		ft_result_path = f'{args.result_path}/{cohort_type}/gbm_ft/{task}/{feat_group}_feats/best'
 		os.makedirs(ft_result_path,exist_ok=True)
 
