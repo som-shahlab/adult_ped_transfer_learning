@@ -59,14 +59,14 @@ parser.add_argument(
 parser.add_argument(
     '--train_end_date',
     type=str,
-    default='2020-12-31',
+    default='2019-12-31',
     help='End date of training ids.'
 )
 
 parser.add_argument(
     '--val_start_date',
     type=str,
-    default='2008-01-01',
+    default='2020-01-01',
     help='Start date of validation ids.'
 )
 
@@ -95,6 +95,24 @@ parser.add_argument(
     '--excluded_patient_path',
     type=str,
     default="/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/held_out_patients/excluded_patient_ids"
+)
+
+parser.add_argument(
+	"--included_patient_ids_fpath",
+	type=str,
+	default="/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/pretrain_cohort/",
+)
+
+parser.add_argument(
+	"--included_patient_ids_train_fname",
+	type=str,
+	default="train_patient_ids",
+)
+
+parser.add_argument(
+	"--included_patient_ids_val_fname",
+	type=str,
+	default="val_patient_ids",
 )
 
 parser.add_argument(
@@ -184,6 +202,8 @@ if __name__ == "__main__":
 	
 	print(args.pretrain_group)
 	exc_pat_file = f"{args.excluded_patient_path}_{args.pretrain_group}.txt"
+	inc_train_pat_file = f"{args.included_patient_ids_fpath}{args.included_patient_ids_train_fname}_{args.pretrain_group}.txt"
+	inc_val_pat_file = f"{args.included_patient_ids_fpath}{args.included_patient_ids_val_fname}_{args.pretrain_group}.txt"
 	print(exc_pat_file)
 	if args.overwrite and os.path.exists(info_dir):
 		shutil.rmtree(info_dir, ignore_errors=True)
@@ -197,6 +217,8 @@ if __name__ == "__main__":
 		"--train_start_date", f"{args.train_start_date}",
 		"--val_start_date", f"{args.val_start_date}",
 		"--min_patient_count", args.min_patient_count,
+		# "--train_patient_file", inc_train_pat_file,
+		# "--val_patient_file", inc_val_pat_file,
 		"--excluded_patient_file", exc_pat_file,
 		"--seed", f'{args.seed}'
 	])

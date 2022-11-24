@@ -89,6 +89,34 @@ parser.add_argument(
 )
 
 parser.add_argument(
+	'--pretrain_group',
+	type=str,
+	default='mix',
+	help='Pretrained cohort type.'
+)
+
+parser.add_argument(
+	'--train_cohort',
+	type=str,
+	default='ped',
+	help='Cohort to train adapter on.'
+)
+
+parser.add_argument(
+	'--test_cohort',
+	type=str,
+	default='ped',
+	help='Cohort to test adapter on.'
+)
+
+parser.add_argument(
+	'--task',
+	type=str,
+	default='hospital_mortality',
+	help='Task to evaluate.'
+)
+
+parser.add_argument(
 	"--seed",
 	type = int,
 	default = 44,
@@ -152,6 +180,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+	'--l2',
+	type=float,
+	default=0,
+	help='L2 rate for pretrained model.'
+)
+
+parser.add_argument(
 	'--encoder',
 	type=str,
 	default='gru',
@@ -161,7 +196,7 @@ parser.add_argument(
 parser.add_argument(
 	'--device',
 	type=str,
-	default='cuda:0',
+	default='cuda:2',
 	help='Device to run torch model on.'
 )
 
@@ -186,12 +221,11 @@ class LinearAdapter(nn.Module):
 
 	def forward(self, batch):
 		features = self.clmbr_model.timeline_model(batch['rnn']).to(self.device)
-
 		label_indices, label_values = batch['label']
 
 		flat_features = features.view((-1, features.shape[-1]))
 		target_features = F.embedding(label_indices, flat_features).to(self.device)
-
+		
 		preds = self.activation(self.dense(target_features))
 		return preds, label_values.to(torch.float32)
 
@@ -222,21 +256,22 @@ def load_datasets(args, task, clmbr_model_path):
 	"""
 	Load datasets from split csv files.
 	"""
-	data_path = f'{args.labelled_fpath}/{task}/ped'
+	train_data_path = f'{args.labelled_fpath}/{task}/{args.train_cohort}'
+	test_data_path = f'{args.labelled_fpath}/{task}/{args.test_cohort}'
 
-	print(f'Loading data from {data_path}')
+	print(f'Loading data...')
 
-	train_pids = pd.read_csv(f'{data_path}/ehr_ml_patient_ids_train.csv')
-	val_pids = pd.read_csv(f'{data_path}/ehr_ml_patient_ids_val.csv')
-	test_pids = pd.read_csv(f'{data_path}/ehr_ml_patient_ids_test.csv')
+	train_pids = pd.read_csv(f'{train_data_path}/ehr_ml_patient_ids_train.csv')
+	val_pids = pd.read_csv(f'{train_data_path}/ehr_ml_patient_ids_val.csv')
+	test_pids = pd.read_csv(f'{test_data_path}/ehr_ml_patient_ids_test.csv')
 
-	train_days = pd.read_csv(f'{data_path}/day_indices_train.csv')
-	val_days = pd.read_csv(f'{data_path}/day_indices_val.csv')
-	test_days = pd.read_csv(f'{data_path}/day_indices_test.csv')
+	train_days = pd.read_csv(f'{train_data_path}/day_indices_train.csv')
+	val_days = pd.read_csv(f'{train_data_path}/day_indices_val.csv')
+	test_days = pd.read_csv(f'{test_data_path}/day_indices_test.csv')
 
-	train_labels = pd.read_csv(f'{data_path}/labels_train.csv')
-	val_labels = pd.read_csv(f'{data_path}/labels_val.csv')
-	test_labels = pd.read_csv(f'{data_path}/labels_test.csv')
+	train_labels = pd.read_csv(f'{train_data_path}/labels_train.csv')
+	val_labels = pd.read_csv(f'{train_data_path}/labels_val.csv')
+	test_labels = pd.read_csv(f'{test_data_path}/labels_test.csv')
 
 	train_data = (train_labels.to_numpy().flatten(),train_pids.to_numpy().flatten(),train_days.to_numpy().flatten())
 	val_data = (val_labels.to_numpy().flatten(),val_pids.to_numpy().flatten(),val_days.to_numpy().flatten())
@@ -290,6 +325,8 @@ def train_adapter(args, model, dataset, save_path):
 
 				optimizer.zero_grad()
 				logits, labels = model(batch)
+				if torch.any(torch.isnan(logits)):
+					return None, None, None, None, True
 				loss = criterion(logits, labels.unsqueeze(-1))
 
 				loss.backward()
@@ -329,7 +366,7 @@ def train_adapter(args, model, dataset, save_path):
 			print(f'Early stopping at epoch {e}')
 			break
 
-	return best_model, best_val_preds, best_val_lbls, best_val_ids
+	return best_model, best_val_preds, best_val_lbls, best_val_ids, False
 
 def evaluate_adapter(args, model, dataset):
 	model.eval()
@@ -368,70 +405,64 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	torch.manual_seed(args.seed)
-	tasks = ['hospital_mortality','sepsis','LOS_7','readmission_30','icu_admission','aki1_label','aki2_label','hg_label','np_500_label','np_1000_label']
 
-	# load CLMBR model parameter grid
-	hps = list(
-		ParameterGrid(
-			yaml.load(
-				open(
-					f"{os.path.join(args.hparams_fpath,'gru')}.yml",
-					'r'
-				),
-				Loader=yaml.FullLoader
-			)
-		)
-	)
+	hp = {"size":args.size, "dropout":args.dropout, "lr":args.lr, "l2":args.l2}
 
 	# Iterate through tasks
-	for task in tasks:
-		print(f'Task {task}')
-		for cohort_type in ['mix', 'all']:#['mix', 'ped', 'ad', 'all']:
+	task = args.task
+	print(f'Task {task}')
+	cohort_type = args.pretrain_group
+	print(f'Cohort type {cohort_type}')
+	print(f'Training adapters with {args.train_cohort} dataset')
 
-			for hp in hps:
-				# Path where CLMBR model is saved
-				pt_model_str = f'gru_sz_{hp["size"]}_do_{hp["dropout"]}_lr_{hp["lr"]}_l2_{hp["l2"]}'
-				clmbr_model_path = f'{args.pt_model_path}/{cohort_type}/{pt_model_str}'
-				print(clmbr_model_path)
+	# Path where CLMBR model is saved
+	pt_model_str = f'gru_sz_{hp["size"]}_do_{hp["dropout"]}_lr_{hp["lr"]}_l2_{hp["l2"]}'
+	clmbr_model_path = f'{args.pt_model_path}/{cohort_type}/{pt_model_str}'
+	print(clmbr_model_path)
 
-				# Load  datasets
-				train_dataset, test_dataset = load_datasets(args, task, clmbr_model_path)
+	# Load  datasets
+	train_dataset, test_dataset = load_datasets(args, task, clmbr_model_path)
 
-				# Path where CLMBR adapter will be saved
-				adapter_save_path = f'{args.adapter_path}/{task}/{cohort_type}/{pt_model_str}'
-				os.makedirs(f"{adapter_save_path}",exist_ok=True)
+	# Path where CLMBR adapter will be saved
+	adapter_save_path = f'{args.adapter_path}/{args.train_cohort}/{task}/{cohort_type}/{pt_model_str}'
+	os.makedirs(f"{adapter_save_path}",exist_ok=True)
 
-				result_save_path = f'{args.results_path}/{task}/{cohort_type}/{pt_model_str}'
-				os.makedirs(f"{result_save_path}",exist_ok=True)
+	result_save_path = f'{args.results_path}/{args.train_cohort}/{task}/{cohort_type}/{pt_model_str}'
+	os.makedirs(f"{result_save_path}",exist_ok=True)
 
-				# Load CLMBR model and attach linear adapter
-				clmbr_model = ehr_ml.clmbr.CLMBR.from_pretrained(clmbr_model_path, args.device).to(args.device)
-				clmbr_model.freeze()
+	# Load CLMBR model and attach linear adapter
+	clmbr_model = ehr_ml.clmbr.CLMBR.from_pretrained(clmbr_model_path, args.device).to(args.device)
+	clmbr_model.freeze()
 
-				adapter_model = LinearAdapter(clmbr_model, hp['size'])
+	adapter_model = LinearAdapter(clmbr_model, hp['size'], args.device)
 
-				adapter_model.to(args.device)
+	adapter_model.to(args.device)
 
-				print('Training adapter...')
-				# Train adapter and evaluate on validation 
-				adapter_model, val_preds, val_labels, val_ids = train_adapter(args, adapter_model, train_dataset, adapter_save_path)
+	print('Training adapter...')
+	# Train adapter and evaluate on validation 
+	adapter_model, val_preds, val_labels, val_ids, is_nan = train_adapter(args, adapter_model, train_dataset, adapter_save_path)
 
-				val_df = pd.DataFrame({'CLMBR':'PT', 'model':'linear', 'task':task, 'cohort_type':cohort_type, 'phase':'val', 'person_id':val_ids, 'pred_probs':val_preds, 'labels':val_labels})
-				val_df.to_csv(f'{result_save_path}/val_preds.csv',index=False)
+	if is_nan:
+		print('Erroneous NaN output detected from model, skipping...')
+		pass
+	else:
+		val_df = pd.DataFrame({'CLMBR':'PT', 'model':'linear', 'task':task, 'cohort_type':cohort_type, 'phase':'val', 'person_id':val_ids, 'pred_probs':val_preds, 'labels':val_labels})
+		val_df.to_csv(f'{result_save_path}/val_preds.csv',index=False)
 
-				print('Testing adapter...')
-				test_preds, test_labels, test_ids = evaluate_adapter(args, adapter_model, test_dataset)
+		print('Testing adapter...')
+		test_preds, test_labels, test_ids = evaluate_adapter(args, adapter_model, test_dataset)
 
-				test_df = pd.DataFrame({'CLMBR':'PT', 'model':'linear', 'task':task, 'cohort_type':cohort_type, 'phase':'test', 'person_id':test_ids, 'pred_probs':test_preds, 'labels':test_labels})
-				test_df.to_csv(f'{result_save_path}/test_preds.csv',index=False)
-				df_preds = pd.concat((val_df,test_df))
-				df_preds['CLMBR'] = df_preds['CLMBR'].astype(str)
-				df_preds['model'] = df_preds['model'].astype(str)
-				df_preds['task'] = df_preds['task'].astype(str)
-				df_preds['cohort_type'] = cohort_type
-				df_preds['phase'] = df_preds['phase'].astype(str)
+		test_df = pd.DataFrame({'CLMBR':'PT', 'model':'linear', 'task':task, 'cohort_type':cohort_type, 'phase':'test', 'person_id':test_ids, 'pred_probs':test_preds, 'labels':test_labels})
+		test_df.to_csv(f'{result_save_path}/test_preds.csv',index=False)
+		df_preds = pd.concat((val_df,test_df))
+		df_preds['CLMBR'] = df_preds['CLMBR'].astype(str)
+		df_preds['model'] = df_preds['model'].astype(str)
+		df_preds['task'] = df_preds['task'].astype(str)
+		df_preds['cohort_type'] = cohort_type
+		df_preds['phase'] = df_preds['phase'].astype(str)
 
-				df_eval = calc_metrics(args, df_preds)
-				df_eval['CLMBR'] = 'PT'
-				df_eval['task'] = task
-				df_eval.to_csv(f'{result_save_path}/eval.csv',index=False)
+		df_eval = calc_metrics(args, df_preds)
+		df_eval['CLMBR'] = 'PT'
+		df_eval['task'] = task
+		df_eval.to_csv(f'{result_save_path}/eval.csv',index=False)
+

@@ -13,14 +13,14 @@ cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts
 #mkdir -p ../logs/clmbr_pretrain
 
 ENCODERS=("gru")
-PT_GROUPS=("mix" "ped" "ad")
+PT_GROUPS=("ad" "ped") #("mix" "ped" "ad")
 TRAIN_OVERWRITE='False'
 FEATURIZE_OVERWRITE='False'
 EARLY_STOPPING='True'
 
-N_GPU=3
-GPU_NUM_START=2
-N_JOBS=3
+N_GPU=1
+GPU_NUM_START=4
+N_JOBS=2
 
 # generate job id
 JOB_ID=$(cat /proc/sys/kernel/random/uuid)

@@ -1,4 +1,4 @@
-conda #!/bin/bash
+#!/bin/bash
 
 # conda env
 #source activate /local-scratch/nigam/envs/jlemmon/conl
@@ -18,9 +18,9 @@ TRAIN_OVERWRITE='False'
 FEATURIZE_OVERWRITE='False'
 EARLY_STOPPING='True'
 
-N_GPU=3
-GPU_NUM_START=5
-N_JOBS=3
+N_GPU=2
+GPU_NUM_START=2
+N_JOBS=2
 
 # generate job id
 JOB_ID=$(cat /proc/sys/kernel/random/uuid)
