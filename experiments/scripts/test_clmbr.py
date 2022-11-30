@@ -387,7 +387,6 @@ def evaluate_adapter(args, model, dataset):
 			for batch in eval_loader:
 				logits, labels = model(batch)
 				loss = criterion(logits, labels.unsqueeze(-1))
-				# losses.append(loss.item())
 				preds.extend(logits.cpu().numpy().flatten())
 				lbls.extend(labels.cpu().numpy().flatten())
 				ids.extend(batch['pid'])
@@ -395,17 +394,14 @@ def evaluate_adapter(args, model, dataset):
 
 def calc_metrics(args, df):
 	evaluator = StandardEvaluator()
-	eval_ci_df, eval_df = evaluator.bootstrap_evaluate(
+	df_test = evaluator.evaluate(
 		df,
-		n_boot = args.n_boot,
-		n_jobs = args.n_jobs,
-		strata_vars_eval = ['phase'],
-		strata_vars_boot = ['labels'],
-		patient_id_var='person_id',
-		return_result_df = True
+		strata_vars_eval=['phase'],
+		label_var=['labels'],
+		pred_prob_var=['pred_probs']
 	)
-	eval_ci_df['model'] = 'adapter'
-	return eval_ci_df
+	df_test['model'] = 'adapter'
+	return df_test
 
 if __name__ == '__main__':
 	args = parser.parse_args()

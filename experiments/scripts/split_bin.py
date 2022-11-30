@@ -156,8 +156,7 @@ if __name__=='__main__':
 			),
 			engine='pyarrow'
 		)
-	print(feats_id_map)
-	print(Sda)
+
 	vocab = read_file(
 			os.path.join(
 				args.vocab_path,
@@ -172,7 +171,7 @@ if __name__=='__main__':
 			),
 			engine='pyarrow'
 		)
-	cohort = cohort.merge(feats_id_map)
+	cohort = cohort.merge(feats_id_map, how='left', on='prediction_id')
 	features = joblib.load(os.path.join(args.sparse_path,"features.gz"))
 	ped_df = cohort[cohort['adult_at_admission'] == 0].sort_values(by='features_row_id')
 	adult_df = cohort[cohort['adult_at_admission'] == 1].sort_values(by='features_row_id')
