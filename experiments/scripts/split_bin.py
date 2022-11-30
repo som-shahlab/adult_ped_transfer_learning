@@ -43,14 +43,14 @@ parser.add_argument(
 parser.add_argument(
     '--train_end_year',
     type=int,
-    default=2020,
+    default=2019,
     help='End date of training ids.'
 )
 
 parser.add_argument(
     '--val_start_year',
     type=int,
-    default=2008,
+    default=2020,
     help='Start date of validation ids.'
 )
 

@@ -142,7 +142,7 @@ def get_labels(args, task, cohort):
 def finetune_model(args, task, model_path, X_train, y_train, hp):
 	m = pickle.load(open(f'{model_path}/model.pkl', 'rb'))
 	ft_m = gbm(n_jobs=args.n_jobs, **hp)
-	ft_m.fit(X=X_train.astype(np.float32), y=y_train[task].to_numpy(dtype=np.float32), init_model=m)
+	ft_m.fit(X=X_train[:10].astype(np.float32), y=y_train.head(10)[task].to_numpy(dtype=np.float32), init_model=m)
 	return ft_m
 
 	

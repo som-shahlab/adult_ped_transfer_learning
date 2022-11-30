@@ -55,14 +55,14 @@ parser.add_argument(
 parser.add_argument(
 	'--train_end_year',
 	type=int,
-	default=2020,
+	default=2019,
 	help='End date of training ids.'
 )
 
 parser.add_argument(
 	'--val_start_year',
 	type=int,
-	default=2008,
+	default=2020,
 	help='Start date of validation ids.'
 )
 
@@ -90,7 +90,7 @@ parser.add_argument(
 parser.add_argument(
 	'--add_sepsis_label',
 	type=str2bool,
-	default=False
+	default=True
 )
 
 parser.add_argument(
@@ -126,7 +126,7 @@ def add_sepsis_label(args, cohort, patient_col='person_id'):
 	}
 	
 	sl = SepsisLabeler(**config_dict)
-	#df = sl.create_labels()
+
 	df = sl.create_labelled_cohort()
 	df = df[['person_id', 'sepsis', 'sepsis_index_date']]
 	return cohort.merge(df, on='person_id', how='left')
@@ -151,18 +151,8 @@ def split_cohort(
 
 	# Split into train, val, and test
 	test = df.query('admission_year >= @args.test_start_year').assign(**{f"fold_id":'test'})
-
-	val = df.query('admission_year >= @args.val_start_year and admission_year <=@args.val_end_year').groupby(['adult_at_admission', 'admission_year']).sample(
-		frac=val_frac,
-		random_state = seed
-	).assign(**{
-		f"fold_id":'val'
-	})
-	train = df.query('admission_year >= @args.train_start_year and admission_year <=@args.train_end_year').drop(index=val.index)
-	# train = train.drop(index=test.index)
-	train = train.assign(**{
-		f"fold_id":'train'
-	})
+	val = df.query('admission_year >= @args.val_start_year and admission_year <=@args.val_end_year').assign(**{f"fold_id":'val'})
+	train = df.query('admission_year >= @args.train_start_year and admission_year <=@args.train_end_year').assign(**{f"fold_id":'train'})
 
 	# split train into kfolds
 	kf = KFold(
