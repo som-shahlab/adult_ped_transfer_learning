@@ -156,6 +156,8 @@ if __name__=='__main__':
 			),
 			engine='pyarrow'
 		)
+	print(feats_id_map)
+	print(Sda)
 	vocab = read_file(
 			os.path.join(
 				args.vocab_path,
@@ -166,7 +168,7 @@ if __name__=='__main__':
 	cohort = read_file(
 			os.path.join(
 				args.cohort_path,
-				"cohort_split.parquet"
+				"cohort_split_no_nb.parquet"
 			),
 			engine='pyarrow'
 		)

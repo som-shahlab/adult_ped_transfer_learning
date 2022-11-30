@@ -35,21 +35,21 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
 	'--pt_model_path',
 	type=str,
-	default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models/clmbr/pretrained/models',
+	default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models/clmbr',
 	help='Base path for the pretrained model.'
 )
 
 parser.add_argument(
 	'--adapter_path',
 	type=str,
-	default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models/clmbr/pretrained/adapters',
+	default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models/clmbr',
 	help='Base path for the adapter model layer.'
 )
 
 parser.add_argument(
 	'--results_path',
 	type=str,
-	default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/results/clmbr/pretrained',
+	default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/results/clmbr',
 	help='Base path for the results.'
 )
 
@@ -133,7 +133,7 @@ parser.add_argument(
 parser.add_argument(
 	'--epochs',
 	type=int,
-	default=30,
+	default=50,
 	help='Number of training epochs.'
 )
 
@@ -205,6 +205,12 @@ parser.add_argument(
 	type=int,
 	default=5,
 	help='Number of epochs to wait before triggering early stopping.'
+)
+
+parser.add_argument(
+	'--train_type',
+	type=str,
+	default='pretrained'
 )
 
 
@@ -417,18 +423,20 @@ if __name__ == '__main__':
 
 	# Path where CLMBR model is saved
 	pt_model_str = f'gru_sz_{hp["size"]}_do_{hp["dropout"]}_lr_{hp["lr"]}_l2_{hp["l2"]}'
-	clmbr_model_path = f'{args.pt_model_path}/{cohort_type}/{pt_model_str}'
+	clmbr_model_path = f'{args.pt_model_path}/{args.train_type}/models/{cohort_type}/{pt_model_str}'
 	print(clmbr_model_path)
 
 	# Load  datasets
 	train_dataset, test_dataset = load_datasets(args, task, clmbr_model_path)
 
 	# Path where CLMBR adapter will be saved
-	adapter_save_path = f'{args.adapter_path}/{args.train_cohort}/{task}/{cohort_type}/{pt_model_str}'
+	adapter_save_path = f'{args.adapter_path}/{args.train_type}/adapters/{args.pretrain_group}/{task}/tr_{args.train_cohort}_tst_{args.test_cohort}/{pt_model_str}'
 	os.makedirs(f"{adapter_save_path}",exist_ok=True)
 
-	result_save_path = f'{args.results_path}/{args.train_cohort}/{task}/{cohort_type}/{pt_model_str}'
+	result_save_path = f'{args.results_path}/{args.train_type}/{args.pretrain_group}/{task}/tr_{args.train_cohort}_tst_{args.test_cohort}/{pt_model_str}'
 	os.makedirs(f"{result_save_path}",exist_ok=True)
+	print(adapter_save_path)
+	print(result_save_path)
 
 	# Load CLMBR model and attach linear adapter
 	clmbr_model = ehr_ml.clmbr.CLMBR.from_pretrained(clmbr_model_path, args.device).to(args.device)
@@ -452,17 +460,19 @@ if __name__ == '__main__':
 		print('Testing adapter...')
 		test_preds, test_labels, test_ids = evaluate_adapter(args, adapter_model, test_dataset)
 
-		test_df = pd.DataFrame({'CLMBR':'PT', 'model':'linear', 'task':task, 'cohort_type':cohort_type, 'phase':'test', 'person_id':test_ids, 'pred_probs':test_preds, 'labels':test_labels})
+		test_df = pd.DataFrame({'CLMBR':'PT' if args.pretrain_group == 'pretrained' else 'FT', 'model':'linear', 'task':task, 'cohort_type':cohort_type, 'adapter_train': args.train_cohort, 'adapter_test':args.test_cohort, 'phase':'test', 'person_id':test_ids, 'pred_probs':test_preds, 'labels':test_labels})
 		test_df.to_csv(f'{result_save_path}/test_preds.csv',index=False)
 		df_preds = pd.concat((val_df,test_df))
-		df_preds['CLMBR'] = df_preds['CLMBR'].astype(str)
+		df_preds['CLMBR'] = 'PT' if args.pretrain_group == 'pretrained' else 'FT'
 		df_preds['model'] = df_preds['model'].astype(str)
 		df_preds['task'] = df_preds['task'].astype(str)
 		df_preds['cohort_type'] = cohort_type
+		df_preds['adapter_train'] = args.train_cohort
+		df_preds['adapter_test'] = args.test_cohort
 		df_preds['phase'] = df_preds['phase'].astype(str)
 
 		df_eval = calc_metrics(args, df_preds)
-		df_eval['CLMBR'] = 'PT'
+		df_eval['CLMBR'] = 'PT' if args.pretrain_group == 'pretrained' else 'FT'
 		df_eval['task'] = task
 		df_eval.to_csv(f'{result_save_path}/eval.csv',index=False)
 

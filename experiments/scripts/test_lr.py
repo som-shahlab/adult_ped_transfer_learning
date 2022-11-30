@@ -119,7 +119,7 @@ def load_data(args):
 	cohort = read_file(
 			os.path.join(
 				args.cohort_path,
-				"cohort_split.parquet"
+				"cohort_split_no_nb.parquet"
 			),
 			engine='pyarrow'
 		)
@@ -193,7 +193,7 @@ test_X = test_data[list(test_labels['test_row_idx'])]
 for model in ['lr']:
 	for cohort_type in ['pediatric', 'adult']:
 		print(f"cohort type: {cohort_type}")
-		for feat_group in ['pediatric', 'shared', 'adult']:
+		for feat_group in ['shared']:
 			print(f"feature set: {feat_group}")
 			model_path = f'{args.model_path}/{cohort_type}/{model}/{task}/{feat_group}_feats/best'
 			hp = get_model_hp(model_path)
