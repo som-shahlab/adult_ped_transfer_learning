@@ -150,14 +150,11 @@ def eval_model(args, task, model_path, result_path, X_test, y_test, hp, model):
 		'prediction_id':list(test_labels['prediction_id'].values)
 	})
 	
-	df_test_ci, df_test = evaluator.bootstrap_evaluate(
+	df_test = evaluator.evaluate(
 		df,
-		n_boot = args.n_boot,
-		n_jobs = args.n_jobs,
 		strata_vars_eval=['test_group'],
-		strata_vars_boot=['labels'],
-		patient_id_var='prediction_id',
-		return_result_df = True
+		label_var=['labels'],
+		pred_prob_var=['pred_probs']
 	)
 	
 	if model == 'lr':

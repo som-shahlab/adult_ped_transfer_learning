@@ -112,7 +112,7 @@ def get_model(args, hp):
 	return LogisticRegression(
 					random_state = hp['random_state'], 
 					C = hp['C'], 
-					max_iter = 2000,
+					max_iter = 10000,
 					warm_start = True 
 	)
 
