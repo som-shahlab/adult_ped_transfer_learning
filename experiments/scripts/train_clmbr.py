@@ -205,23 +205,38 @@ if __name__ == "__main__":
 	inc_train_pat_file = f"{args.included_patient_ids_fpath}{args.included_patient_ids_train_fname}_{args.pretrain_group}.txt"
 	inc_val_pat_file = f"{args.included_patient_ids_fpath}{args.included_patient_ids_val_fname}_{args.pretrain_group}.txt"
 	print(exc_pat_file)
+	
 	if args.overwrite and os.path.exists(info_dir):
 		shutil.rmtree(info_dir, ignore_errors=True)
-
-	run([
-		'clmbr_create_info',
-		f"{args.extracts_fpath}",
-		f"{info_dir}",
-		f"{train_end_date}",
-		f"{val_end_date}",
-		"--train_start_date", f"{args.train_start_date}",
-		"--val_start_date", f"{args.val_start_date}",
-		"--min_patient_count", args.min_patient_count,
-		# "--train_patient_file", inc_train_pat_file,
-		# "--val_patient_file", inc_val_pat_file,
-		"--excluded_patient_file", exc_pat_file,
-		"--seed", f'{args.seed}'
-	])
+		
+	if args.pretrain_group == 'all':
+		run([
+			'clmbr_create_info',
+			f"{args.extracts_fpath}",
+			f"{info_dir}",
+			f"{train_end_date}",
+			f"{val_end_date}",
+			"--train_start_date", f"{args.train_start_date}",
+			"--val_start_date", f"{args.val_start_date}",
+			"--min_patient_count", args.min_patient_count,
+			"--excluded_patient_file", exc_pat_file,
+			"--seed", f'{args.seed}'
+		])
+	else:
+		run([
+			'clmbr_create_info',
+			f"{args.extracts_fpath}",
+			f"{info_dir}",
+			f"{train_end_date}",
+			f"{val_end_date}",
+			"--train_start_date", f"{args.train_start_date}",
+			"--val_start_date", f"{args.val_start_date}",
+			"--min_patient_count", args.min_patient_count,
+			"--train_patient_file", inc_train_pat_file,
+			"--val_patient_file", inc_val_pat_file,
+			"--excluded_patient_file", exc_pat_file,
+			"--seed", f'{args.seed}'
+		])
 	
 	processes=[]
     

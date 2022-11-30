@@ -107,7 +107,7 @@ def load_data(args, feat_group):
 	cohort = read_file(
 			os.path.join(
 				args.cohort_path,
-				"cohort_split.parquet"
+				"cohort_split_no_nb.parquet"
 			),
 			engine='pyarrow'
 		)
