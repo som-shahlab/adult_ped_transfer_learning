@@ -95,6 +95,12 @@ parser.add_argument(
 	default='26'
 )
 
+parser.add_argument(
+	'--model',
+	type=str,
+	default='gbm'
+)
+
 
 #-------------------------------------------------------------------
 # helper functions
@@ -183,17 +189,20 @@ test_data, cohort = load_data(args)
 
 
 print(f"task: {task}")
+print(f"Testing on: {args.cohort_type}")
 
 test_labels= get_labels(args, task, cohort)
 test_X = test_data[list(test_labels['test_row_idx'])].astype(np.float32)
-for cohort_type in ['pediatric', 'adult']:
-	print(f"cohort type: {cohort_type}")
+for tr_cohort_type in ['pediatric', 'adult']:
+	if args.model == 'gbm_ft' and tr_cohort_type == 'pediatric':
+		continue
+	print(f"trained on cohort type: {tr_cohort_type}")
 	for feat_group in ['pediatric', 'shared', 'adult']:
 		print(f"feature set: {feat_group}")
-		model_path = f'{args.model_path}/{cohort_type}/gbm/{task}/{feat_group}_feats/best'
+		model_path = f'{args.model_path}/{tr_cohort_type}/{args.model}/{task}/{feat_group}_feats/best'
 		hp = get_model_hp(model_path)
 		print(hp)
-		result_path = f'{args.result_path}/{cohort_type}/gbm/{task}/{feat_group}_feats/best'
+		result_path = f'{args.result_path}/{args.model}/{task}/tr_{tr_cohort_type}_tst_{args.cohort_type}/{feat_group}_feats/best'
 		eval_model(args, task, model_path, result_path, test_X, test_labels, hp)
 
 

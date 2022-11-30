@@ -18,9 +18,9 @@ cd /labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
 
 
 # make log folders if not exist
-mkdir -p ../logs/train_gbm
-mkdir -p ../logs/test_gbm
-mkdir -p ../logs/ft_gbm
+# mkdir -p ../logs/train_gbm
+# mkdir -p ../logs/test_gbm
+# mkdir -p ../logs/ft_gbm
 
 ## -----------------------------------------------------------
 ## --------------------- job specification -------------------
@@ -28,6 +28,7 @@ mkdir -p ../logs/ft_gbm
 COHORT_TYPES=("pediatric" "adult")
 FEAT_GROUPS=("shared" "pediatric" "adult")
 TASKS=('hospital_mortality' 'sepsis' 'LOS_7' 'readmission_30' 'icu_admission' 'aki1_label' 'aki2_label' 'hg_label' 'np_500_label' 'np_1000_label')
+MODELS=('gbm' 'gbm_ft')
 N_BOOT=1000
 
 # number of pipes to execute in parallel
@@ -51,42 +52,25 @@ function pipe {
 
 	#Training GBM models
 	#executes $N_TASK jobs in parallel
-# 	echo "TRAINING MODELS..."
-# 	local k=0
-# 	for (( ij=0; ij<$N_COHORTS; ij++ )); do
-#       for (( g=0; g<$N_GROUPS; g++)); do
-# 		    for (( t=0; t<$N_TASKS; t++ )); do
-# 				python -u train_gbm.py \
-# 					--task=${TASKS[$t]} \
-# 					--cohort_type=${COHORT_TYPES[$ij]} \
-# 					--feat_group=${FEAT_GROUPS[$g]} \
-# 					--bin_path="$1" \
-# 					--cohort_path="$2" \
-# 					--hparam_path="$3" \
-# 					--model_path="$4" \
-# 					--results_path="$5" #\
-# 					#>> "../logs/train_gbm/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
-# 				let k+=1
-# 				[[ $((k%N_TASKS)) -eq 0 ]] && wait
-# 			done
-# 	    done
-# 	done
-# 	echo "EVALUATING MODELS..."
-# 	#evaluate models
-# 	#executes $N_TASK jobs in parallel
-# 	local k=0
-# 	for (( t=0; t<$N_TASKS; t++ )); do
-# 		python -u test_gbm.py \
-# 			   --task=${TASKS[$t]} \
-# 			   --bin_path="$1" \
-# 			   --cohort_path="$2" \
-# 			   --hparam_path="$3" \
-# 			   --model_path="$4" \
-# 			   --result_path="$5" #\
-# 			   #>> "../logs/test_gbm/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
-# 		let k+=1
-# 		[[ $((k%N_TASKS)) -eq 0 ]] && wait
-# 	done
+	echo "TRAINING MODELS..."
+	local k=0
+	for (( ij=0; ij<$N_COHORTS; ij++ )); do
+		for (( g=0; g<$N_GROUPS; g++)); do
+			for (( t=0; t<$N_TASKS; t++ )); do
+				python -u train_gbm.py \
+					--task=${TASKS[$t]} \
+					--cohort_type=${COHORT_TYPES[$ij]} \
+					--feat_group=${FEAT_GROUPS[$g]} \
+					--bin_path="$1" \
+					--cohort_path="$2" \
+					--hparam_path="$3" \
+					--model_path="$4" \
+					--results_path="$5" #\
+				let k+=1
+				[[ $((k%N_TASKS)) -eq 0 ]] && wait
+			done
+		done
+	done
 
 	echo "FINETUNING MODELS..."
 	# finetune models
@@ -100,10 +84,31 @@ function pipe {
 			   --hparam_path="$3" \
 			   --model_path="$4" \
 			   --result_path="$5" #\
-			   #>> "../logs/ft_gbm/${1:2:2}-${1: -2}-${TASKS[$t]}-$JOB_ID" &
 		let k+=1
 		[[ $((k%N_TASKS)) -eq 0 ]] && wait
 	 done
+	 
+	echo "EVALUATING MODELS..."
+	#evaluate models
+	#executes $N_TASK jobs in parallel
+	local k=0
+	for (( m=0; m<$N_MODELS; m++)); do
+		for (( ij=0; ij<$N_COHORTS; ij++ )); do
+			for (( t=0; t<$N_TASKS; t++ )); do
+				python -u test_gbm.py \
+					   --task=${TASKS[$t]} \
+					   --model=${MODELS[$m]} \
+					   --cohort_type=${COHORT_TYPES[$ij]} \
+					   --bin_path="$1" \
+					   --cohort_path="$2" \
+					   --hparam_path="$3" \
+					   --model_path="$4" \
+					   --result_path="$5" #\
+				let k+=1
+				[[ $((k%N_TASKS)) -eq 0 ]] && wait
+			done
+		done
+	done
 
 }
 

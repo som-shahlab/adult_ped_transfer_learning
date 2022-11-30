@@ -115,12 +115,6 @@ def load_data(args, feat_group):
 		)
 
 	fn = f'{args.bin_path}/pediatric'
-
-	test_feats = sp.load_npz(f'{fn}/test/{feat_group}_feats.npz')
-	test_rows = pd.read_csv(f'{fn}/test/test_pred_id_map.csv')
-	
-	cohort = cohort.merge(test_rows, how='left', on='prediction_id')
-	cohort['test_row_idx'] = cohort['test_row_idx'].fillna(-1).astype(int)
 		
 	train_feats = sp.load_npz(f'{fn}/train/{feat_group}_feats.npz')
 	train_rows = pd.read_csv(f'{fn}/train/train_pred_id_map.csv')
@@ -128,56 +122,19 @@ def load_data(args, feat_group):
 	cohort = cohort.merge(train_rows, how='left', on='prediction_id')
 	cohort['train_row_idx'] = cohort['train_row_idx'].fillna(-1).astype(int)
 
-	return train_feats, test_feats, cohort
+	return train_feats, cohort
 
 def get_labels(args, task, cohort):
 	train_cohort = cohort.query(f'train_row_idx>=0 and {args.task}_fold_id!="ignore"').sort_values(by='train_row_idx')
 	train_labels = train_cohort[['prediction_id', 'train_row_idx', f'{args.task}']]
 	
-	test_cohort = cohort.query(f'test_row_idx>=0 and {args.task}_fold_id!="ignore"').sort_values(by='test_row_idx')
-	test_labels = test_cohort[['prediction_id', 'test_row_idx', f'{args.task}']]
-	
-	return train_labels, test_labels
+	return train_labels
 
 def finetune_model(args, task, model_path, X_train, y_train, hp):
 	m = pickle.load(open(f'{model_path}/model.pkl', 'rb'))
 	ft_m = gbm(n_jobs=args.n_jobs, **hp)
 	ft_m.fit(X=X_train[:10].astype(np.float32), y=y_train.head(10)[task].to_numpy(dtype=np.float32), init_model=m)
-	return ft_m
-
-	
-def eval_model(args, task, m, model_path, result_path, X_test, y_test, hp):
-	evaluator = StandardEvaluator(metrics=['auc','auprc','auprc_c','loss_bce','ace_abs_logistic_logit'])
-
-	df = pd.DataFrame({
-		'pred_probs':m.predict_proba(X_test.astype(np.float32))[:,1],
-		'labels':list(y_test[task].values),
-		'task':task,
-		'test_group':'test',
-		'prediction_id':list(test_labels['prediction_id'].values)
-	})
-	
-	df_test = evaluator.evaluate(
-		df,
-		strata_vars_eval=['test_group'],
-		label_var=['labels'],
-		pred_prob_var=['pred_probs']
-	)
-	
-	df_test['lr'] = hp['learning_rate']
-	df_test['leaves'] = hp['num_leaves']
-	df_test['type'] = hp['boosting_type']
-		
-	df_test['model'] = 'gbm_ft'
-	os.makedirs(f"{result_path}", exist_ok=True)
-	df_test_ci.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
-	
-	with open(f'{model_path}/model.pkl', 'wb') as pkl_file:
-		pickle.dump(m, pkl_file)
-		
-	with open(f'{model_path}/hp.yml','w') as file:
-		yaml.dump(hp, file)
-	
+	return ft_m	
 
 
 #-------------------------------------------------------------------
@@ -200,11 +157,10 @@ for cohort_type in ['adult']:
 	print(f"cohort type: {cohort_type}")
 	for feat_group in ['pediatric', 'shared', 'adult']:
 		print(f"feature set: {feat_group}")
-		train_data, test_data, cohort = load_data(args, feat_group)
+		train_data, cohort = load_data(args, feat_group)
 
-		train_labels, test_labels= get_labels(args, task, cohort)
+		train_labels = get_labels(args, task, cohort)
 		train_X = train_data[list(train_labels['train_row_idx'])]
-		test_X = test_data[list(test_labels['test_row_idx'])]
 
 		model_path = f'{args.model_path}/{cohort_type}/gbm/{task}/{feat_group}_feats/best'
 		hp = get_model_hp(model_path)
@@ -214,14 +170,8 @@ for cohort_type in ['adult']:
 		ft_model_path = f'{args.model_path}/{cohort_type}/gbm_ft/{task}/{feat_group}_feats/best'
 		os.makedirs(ft_model_path,exist_ok=True)
 		
-		ft_result_path = f'{args.result_path}/{cohort_type}/gbm_ft/{task}/{feat_group}_feats/best'
-		os.makedirs(ft_result_path,exist_ok=True)
-
-		eval_model(args, task, ft_model, ft_model_path, ft_result_path, test_X, test_labels, hp)
-
-
-
-
-
-
-
+		with open(f'{ft_model_path}/model.pkl', 'wb') as pkl_file:
+			pickle.dump(ft_model, pkl_file)
+			
+		with open(f'{ft_model_path}/hp.yml','w') as file:
+			yaml.dump(hp, file)

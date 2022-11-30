@@ -184,19 +184,21 @@ test_data, cohort = load_data(args)
 
 
 print(f"task: {task}")
+print(f"Testing on: {args.cohort_type}")
 
 test_labels= get_labels(args, task, cohort)
 test_X = test_data[list(test_labels['test_row_idx'])]
-for model in ['lr']:
-	for cohort_type in ['pediatric', 'adult']:
-		print(f"cohort type: {cohort_type}")
-		for feat_group in ['shared']:
-			print(f"feature set: {feat_group}")
-			model_path = f'{args.model_path}/{cohort_type}/{model}/{task}/{feat_group}_feats/best'
-			hp = get_model_hp(model_path)
-			print(hp)
-			result_path = f'{args.result_path}/{cohort_type}/{model}/{task}/{feat_group}_feats/best'
-			eval_model(args, task, model_path, result_path, test_X, test_labels, hp, model)
+for tr_cohort_type in ['pediatric', 'adult']:
+	if args.model == 'lr_ft' and tr_cohort_type == 'pediatric':
+		continue
+	print(f"trained in cohort type: {tr_cohort_type}")
+	for feat_group in ['shared']:
+		print(f"feature set: {feat_group}")
+		model_path = f'{args.model_path}/{cohort_type}/{args.model}/{task}/{feat_group}_feats/best'
+		hp = get_model_hp(model_path)
+		print(hp)
+		result_path = f'{args.result_path}/{args.model}/{task}/tr_{tr_cohort_type}_tst_{args.cohort_type}/{feat_group}_feats/best'
+		eval_model(args, task, model_path, result_path, test_X, test_labels, hp, model)
 
 
 
