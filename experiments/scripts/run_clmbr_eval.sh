@@ -16,6 +16,7 @@ PT_GROUPS=("all") #("all" "mix" "ad" "ped")
 TASKS=("hospital_mortality" "sepsis" "LOS_7" "readmission_30" "aki1_label" "aki2_label" "hg_label" "np_500_label" "np_1000_label")
 TRAIN_COHORTS=("ad" "ped")
 TEST_COHORTS=("ad" "ped")
+TRAIN_TYPES=("pretrained" "finetuned")
 TRAIN_OVERWRITE='False'
 FEATURIZE_OVERWRITE='False'
 EARLY_STOPPING='True'
@@ -36,18 +37,22 @@ N_LEARN_RATES=${#LEARN_RATES[@]}
 N_TASKS=${#TASKS[@]}
 N_TR_COHORTS=${#TRAIN_COHORTS[@]}
 N_TST_COHORTS=${#TEST_COHORTS[@]}
+N_TR_TYPES=${#TRAIN_TYPES[@]}
 
 for ((r=0; r<$N_TASKS; r++)); do
-	for (( t=0; t<$N_GROUPS; t++ )); do
-		for (( i=0; i<$N_LEARN_RATES; i++ )); do
-			for ((k=0; k<$N_TR_COHORTS; k++)); do
-				for ((l=0; k<$N_TST_COHORTS; l++)); do
-					python -u test_clmbr.py \
-						--pretrain_group=${PT_GROUPS[$t]} \
-						--train_cohort=${TRAIN_COHORTS[$k]} \
-						--test_cohort=${TEST_COHORTS[$l]} \
-						--lr=${LEARN_RATES[$i]} \
-						--task=${TASKS[$r]}
+	for ((m=0; m<$N_TR_TYPES; n++)); do
+		for (( t=0; t<$N_GROUPS; t++ )); do
+			for (( i=0; i<$N_LEARN_RATES; i++ )); do
+				for ((k=0; k<$N_TR_COHORTS; k++)); do
+					for ((l=0; l<$N_TST_COHORTS; l++)); do
+						python -u test_clmbr.py \
+							--pretrain_group=${PT_GROUPS[$t]} \
+							--train_cohort=${TRAIN_COHORTS[$k]} \
+							--test_cohort=${TEST_COHORTS[$l]} \
+							--train_type=${TRAIN_TYPES[$m]} \
+							--lr=${LEARN_RATES[$i]} \
+							--task=${TASKS[$r]}
+					done
 				done
 			done
 		done
