@@ -126,7 +126,7 @@ parser.add_argument(
 parser.add_argument(
 	'--batch_size',
 	type=int,
-	default=128,
+	default=2000,
 	help='Size of training batch.'
 )
 
@@ -396,7 +396,7 @@ def calc_metrics(args, df):
 	evaluator = StandardEvaluator()
 	df_test = evaluator.evaluate(
 		df,
-		strata_vars_eval=['phase'],
+		strata_vars=['phase'],
 		label_var=['labels'],
 		pred_prob_var=['pred_probs']
 	)

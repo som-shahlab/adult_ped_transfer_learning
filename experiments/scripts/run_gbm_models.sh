@@ -21,7 +21,7 @@ cd /labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
 ## -----------------------------------------------------------
 COHORT_TYPES=("pediatric" "adult")
 FEAT_GROUPS=("shared" "pediatric" "adult")
-TASKS=('hospital_mortality' 'sepsis' 'LOS_7' 'readmission_30' 'icu_admission' 'aki1_label' 'aki2_label' 'hg_label' 'np_500_label' 'np_1000_label')
+TASKS=('hospital_mortality' 'sepsis' 'LOS_7' 'readmission_30' 'hyperkalemia_lab_mild', 'hyperkalemia_lab_moderate', 'hyperkalemia_lab_severe', 'hyperkalemia_lab_abnormal', 'hypoglycemia_lab_mild', 'hypoglycemia_lab_moderate', 'hypoglycemia_lab_severe', 'hypoglycemia_lab_abnormal', 'neutropenia_lab_mild', 'neutropenia_lab_moderate', 'neutropenia_lab_severe', 'hyponatremia_lab_mild', 'hyponatremia_lab_moderate', 'hyponatremia_lab_severe', 'hyponatremia_lab_abnormal', 'aki_lab_aki1', 'aki_lab_aki2', 'aki_lab_aki3', 'aki_lab_abnormal', 'anemia_lab_mild', 'anemia_lab_moderate', 'anemia_lab_severe', 'anemia_lab_abnormal', 'thrombocytopenia_lab_mild', 'thrombocytopenia_lab_moderate', 'thrombocytopenia_lab_severe', 'thrombocytopenia_lab_abnormal', 'hypoglycemia_dx', 'aki_dx', 'anemia_dx', 'hyperkalemia_dx', 'hyponatremia_dx', 'thrombocytopenia_dx', 'neutropenia_dx')
 MODELS=('gbm' 'gbm_ft')
 N_BOOT=1000
 

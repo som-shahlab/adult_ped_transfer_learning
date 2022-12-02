@@ -12,8 +12,8 @@ cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts
 #mkdir -p ../logs/clmbr_eval
 
 LEARN_RATES=(0.0001) #(0.01 0.001 0.0001 0.00001)
-PT_GROUPS=("all") #("all" "mix" "ad" "ped")
-TASKS=("hospital_mortality" "sepsis" "LOS_7" "readmission_30" "aki1_label" "aki2_label" "hg_label" "np_500_label" "np_1000_label")
+PT_GROUPS=("all" "ad") #("all" "mix" "ad" "ped")
+TASKS=("hospital_mortality" "sepsis" "LOS_7" 'hyperkalemia_lab_mild', 'hyperkalemia_lab_moderate', 'hyperkalemia_lab_severe', 'hyperkalemia_lab_abnormal', 'hypoglycemia_lab_mild', 'hypoglycemia_lab_moderate', 'hypoglycemia_lab_severe', 'hypoglycemia_lab_abnormal', 'neutropenia_lab_mild', 'neutropenia_lab_moderate', 'neutropenia_lab_severe', 'hyponatremia_lab_mild', 'hyponatremia_lab_moderate', 'hyponatremia_lab_severe', 'hyponatremia_lab_abnormal', 'aki_lab_aki1', 'aki_lab_aki2', 'aki_lab_aki3', 'aki_lab_abnormal', 'anemia_lab_mild', 'anemia_lab_moderate', 'anemia_lab_severe', 'anemia_lab_abnormal', 'thrombocytopenia_lab_mild', 'thrombocytopenia_lab_moderate', 'thrombocytopenia_lab_severe', 'thrombocytopenia_lab_abnormal', 'hypoglycemia_dx', 'aki_dx', 'anemia_dx', 'hyperkalemia_dx', 'hyponatremia_dx', 'thrombocytopenia_dx', 'neutropenia_dx')
 TRAIN_COHORTS=("ad" "ped")
 TEST_COHORTS=("ad" "ped")
 TRAIN_TYPES=("pretrained" "finetuned")

@@ -13,7 +13,7 @@ cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts
 #mkdir -p ../logs/clmbr_pretrain
 
 ENCODERS=("gru")
-PT_GROUPS=("all") # ("all" "ad")
+PT_GROUPS=("ad") # ("all" "ad")
 LEARN_RATES=(0.0001) #(0.0001 0.00001)
 L2_VALS=("0") #(0 0.01)
 TRAIN_OVERWRITE='False'
