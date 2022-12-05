@@ -20,7 +20,7 @@ EARLY_STOPPING='True'
 
 N_GPU=1
 GPU_NUM_START=7
-N_JOBS=2
+N_JOBS=1
 
 # generate job id
 JOB_ID=$(cat /proc/sys/kernel/random/uuid)

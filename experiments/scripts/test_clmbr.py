@@ -196,7 +196,7 @@ parser.add_argument(
 parser.add_argument(
 	'--device',
 	type=str,
-	default='cuda:2',
+	default='cuda:6',
 	help='Device to run torch model on.'
 )
 
@@ -294,6 +294,7 @@ def load_datasets(args, task, clmbr_model_path):
 										 f'{clmbr_model_path}/info.json', 
 										 train_data, 
 										 test_data )
+	print(f"{len(train_pids)} patients in training set")
 	print(f"{len(test_labels[test_labels[task]==1])} positive labels in test set")
 	print(f"{len(test_labels[test_labels[task]==0])} negative labels in test set")
 	return train_dataset, test_dataset
@@ -396,9 +397,9 @@ def calc_metrics(args, df):
 	evaluator = StandardEvaluator()
 	df_test = evaluator.evaluate(
 		df,
-		strata_vars=['phase'],
-		label_var=['labels'],
-		pred_prob_var=['pred_probs']
+		strata_vars='phase',
+		label_var='labels',
+		pred_prob_var='pred_probs'
 	)
 	df_test['model'] = 'adapter'
 	return df_test
@@ -419,7 +420,10 @@ if __name__ == '__main__':
 
 	# Path where CLMBR model is saved
 	pt_model_str = f'gru_sz_{hp["size"]}_do_{hp["dropout"]}_lr_{hp["lr"]}_l2_{hp["l2"]}'
-	clmbr_model_path = f'{args.pt_model_path}/{args.train_type}/models/{cohort_type}/{pt_model_str}'
+	if args.train_type == 'pretrained':
+		clmbr_model_path = f'{args.pt_model_path}/{args.train_type}/models/{cohort_type}/{pt_model_str}'
+	elif args.train_type == 'finetuned':
+		clmbr_model_path = f'{args.pt_model_path}/{args.train_type}/models/{cohort_type}/{pt_model_str}/finetune_model'
 	print(clmbr_model_path)
 
 	# Load  datasets

@@ -29,12 +29,11 @@ parser.add_argument(
 	help = "path to save cohort"
 )
 
-
 parser.add_argument(
 	"--tasks",
 	nargs='+',
 	type=str ,
-	default=['hospital_mortality','sepsis','LOS_7','readmission_30','icu_admission','aki1_label','aki2_label','hg_label','np_500_label','np_1000_label'],
+	default=['hospital_mortality', 'sepsis', 'LOS_7', 'readmission_30', 'hyperkalemia_lab_mild_label', 'hyperkalemia_lab_moderate_label', 'hyperkalemia_lab_severe_label', 'hyperkalemia_lab_abnormal_label', 'hypoglycemia_lab_mild_label', 'hypoglycemia_lab_moderate_label', 'hypoglycemia_lab_severe_label', 'hypoglycemia_lab_abnormal_label', 'neutropenia_lab_mild_label', 'neutropenia_lab_moderate_label', 'neutropenia_lab_severe_label', 'hyponatremia_lab_mild_label', 'hyponatremia_lab_moderate_label', 'hyponatremia_lab_severe_label', 'hyponatremia_lab_abnormal_label', 'aki_lab_aki1_label', 'aki_lab_aki2_label', 'aki_lab_aki3_label', 'aki_lab_abnormal_label', 'anemia_lab_mild_label', 'anemia_lab_moderate_label', 'anemia_lab_severe_label', 'anemia_lab_abnormal_label', 'thrombocytopenia_lab_mild_label', 'thrombocytopenia_lab_moderate_label', 'thrombocytopenia_lab_severe_label', 'thrombocytopenia_lab_abnormal_label'],
 	help="List of tasks to predict"
 )
 
@@ -137,7 +136,7 @@ def split_cohort(
 		seed,
 		patient_col='person_id',
 		index_year='admission_year',
-		tasks=['hospital_mortality','sepsis','LOS_7','readmission_30','icu_admission', 'aki1_label','aki2_label','hg_label','np_500_label','np_1000_label'],
+		tasks=['hospital_mortality', 'sepsis', 'LOS_7', 'readmission_30', 'hyperkalemia_lab_mild_label', 'hyperkalemia_lab_moderate_label', 'hyperkalemia_lab_severe_label', 'hyperkalemia_lab_abnormal_label', 'hypoglycemia_lab_mild_label', 'hypoglycemia_lab_moderate_label', 'hypoglycemia_lab_severe_label', 'hypoglycemia_lab_abnormal_label', 'neutropenia_lab_mild_label', 'neutropenia_lab_moderate_label', 'neutropenia_lab_severe_label', 'hyponatremia_lab_mild_label', 'hyponatremia_lab_moderate_label', 'hyponatremia_lab_severe_label', 'hyponatremia_lab_abnormal_label', 'aki_lab_aki1_label', 'aki_lab_aki2_label', 'aki_lab_aki3_label', 'aki_lab_abnormal_label', 'anemia_lab_mild_label', 'anemia_lab_moderate_label', 'anemia_lab_severe_label', 'anemia_lab_abnormal_label', 'thrombocytopenia_lab_mild_label', 'thrombocytopenia_lab_moderate_label', 'thrombocytopenia_lab_severe_label', 'thrombocytopenia_lab_abnormal_label'],
 		val_frac=0.15,
 		test_frac=0.15,
 		nfold=5
@@ -150,34 +149,36 @@ def split_cohort(
 	df['discharge_year']=df['discharge_date'].dt.year
 
 	# Split into train, val, and test
-	test = df.query('admission_year >= @args.test_start_year').assign(**{f"fold_id":'test'})
-	val = df.query('admission_year >= @args.val_start_year and admission_year <=@args.val_end_year').assign(**{f"fold_id":'val'})
-	train = df.query('admission_year >= @args.train_start_year and admission_year <=@args.train_end_year').assign(**{f"fold_id":'train'})
+	# test = df.query('admission_year >= @args.test_start_year').assign(**{f"fold_id":'test'})
+	# val = df.query('admission_year >= @args.val_start_year and admission_year <=@args.val_end_year').assign(**{f"fold_id":'val'})
+	# train = df.query('admission_year >= @args.train_start_year and admission_year <=@args.train_end_year').assign(**{f"fold_id":'train'})
 
 	# split train into kfolds
-	kf = KFold(
-		n_splits=nfold,
-		shuffle=True,
-		random_state=seed
-	)
+# 	kf = KFold(
+# 		n_splits=nfold,
+# 		shuffle=True,
+# 		random_state=seed
+# 	)
 
-	cohort = test
-	cohort = pd.concat((test,val))
-	adult_at_admission = [0, 1]
-	years = train['admission_year'].unique()
+# 	cohort = test
+# 	cohort = pd.concat((test,val))
+# 	adult_at_admission = [0, 1]
+# 	years = train['admission_year'].unique()
 
-	for pair in list(itertools.product(adult_at_admission, years)): 
-		itrain = train.query(f"adult_at_admission==@pair[0] and admission_year==@pair[1]")
-		c=0
-		for _, val_ids in kf.split(itrain[patient_col]):
+# 	for pair in list(itertools.product(adult_at_admission, years)): 
+# 		itrain = train.query(f"adult_at_admission==@pair[0] and admission_year==@pair[1]")
+# 		c=0
+# 		for _, val_ids in kf.split(itrain[patient_col]):
 
-			cohort = pd.concat((cohort,
-				itrain.iloc[val_ids,:].assign(**{
-					f"fold_id":str(c)
-				}))
-			)
+# 			cohort = pd.concat((cohort,
+# 				itrain.iloc[val_ids,:].assign(**{
+# 					f"fold_id":str(c)
+# 				}))
+# 			)
+	print([c for c in df.columns])
 
 	for task in tasks:
+		print(task)
 		assert(task in cohort.columns)
 		cohort[f"{task}_fold_id"]=cohort['fold_id']
 
@@ -188,8 +189,10 @@ def split_cohort(
 		# remove discharges before midnight
 		cohort.loc[cohort['discharge_date']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
 		cohort.loc[cohort['discharge_date']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-
-		if task == 'readmission_30':
+		
+		if task in ['hospital_mortality', 'LOS_7']:
+			continue
+		elif task == 'readmission_30':
 			# remove admissions in which the patient died
 			cohort.loc[cohort['hospital_mortality']==1,f'{task}_fold_id']='ignore'
 			cohort.loc[cohort['hospital_mortality']==1,f'{task}']= np.nan
@@ -197,35 +200,35 @@ def split_cohort(
 			cohort.loc[cohort['readmission_window']==0,f'{task}_fold_id']='ignore'
 			cohort.loc[cohort['readmission_window']==0,f'{task}']= np.nan
 
-		if task == 'icu_admission':
-			# remove icu admissions before midnight
-			cohort.loc[cohort['icu_start_datetime']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			cohort.loc[cohort['icu_start_datetime']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-
-		if task == 'aki1_label':
-			# remove aki1 before midnight
-			cohort.loc[cohort['aki1_creatinine_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			cohort.loc[cohort['aki1_creatinine_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-		if task == 'aki2_label':
-			# remove aki2 before midnight
-			cohort.loc[cohort['aki2_creatinine_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			cohort.loc[cohort['aki2_creatinine_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-		if task == 'hg_label':
-			# remove hg before midnight
-			cohort.loc[cohort['hg_glucose_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			cohort.loc[cohort['hg_glucose_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-		if task == 'np_500_label':
-			# remove np_500 before midnight
-			cohort.loc[cohort['np_500_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			cohort.loc[cohort['np_500_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-		if task == 'np_1000_label':
-			# remove np_500 before midnight
-			cohort.loc[cohort['np_1000_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-			cohort.loc[cohort['np_1000_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-		if task == 'sepsis':
+		# if task == 'aki1_label':
+		# 	# remove aki1 before midnight
+		# 	cohort.loc[cohort['aki1_creatinine_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+		# 	cohort.loc[cohort['aki1_creatinine_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
+		# if task == 'aki2_label':
+		# 	# remove aki2 before midnight
+		# 	cohort.loc[cohort['aki2_creatinine_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+		# 	cohort.loc[cohort['aki2_creatinine_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
+		# if task == 'hg_label':
+		# 	# remove hg before midnight
+		# 	cohort.loc[cohort['hg_glucose_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+		# 	cohort.loc[cohort['hg_glucose_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
+		# if task == 'np_500_label':
+		# 	# remove np_500 before midnight
+		# 	cohort.loc[cohort['np_500_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+		# 	cohort.loc[cohort['np_500_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
+		# if task == 'np_1000_label':
+		# 	# remove np_500 before midnight
+		# 	cohort.loc[cohort['np_1000_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+		# 	cohort.loc[cohort['np_1000_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
+		elif task == 'sepsis':
 			# remove sepsis before midnight
 			cohort.loc[cohort['sepsis_index_date']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
 			cohort.loc[cohort['sepsis_index_date']<=cohort['admit_date_midnight'],f'{task}']=np.nan
+		else:
+			cohort[f'{task}'] = cohort[f'{task}'].fillna(0)
+			cohort.loc[cohort[f'{task[:-6]}_measurement_datetime']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
+			cohort.loc[cohort[f'{task[:-6]}_measurement_datetime']<=cohort['admit_date_midnight'],f'{task}']=np.nan
+
 	return cohort.sort_index()
 
 #-------------------------------------------------------------------
@@ -239,7 +242,7 @@ if __name__ == "__main__":
 	cohort = read_file(
 		os.path.join(
 			args.cohort_fpath,
-			"cohort/cohort.parquet"
+			"cohort/cohort_no_nb.parquet"
 		),
 		engine='pyarrow'
 	)
@@ -258,9 +261,7 @@ if __name__ == "__main__":
 	cohort.to_parquet(
 		os.path.join(
 			args.cohort_fpath,
-			"cohort/cohort_split.parquet"
+			"cohort/cohort_split_no_nb.parquet"
 		),
 		engine="pyarrow",
 	)
-
-	print(cohort)
