@@ -105,8 +105,6 @@ def load_data(args):
 	
 	cohort = cohort.merge(val_rows, how='left', on='prediction_id')
 	cohort['val_row_idx'] = cohort['val_row_idx'].fillna(-1).astype(int)
-	print(cohort)
-	print(cohort['thrombocytopenia_lab_severe_label'])
 	return train_feats, val_feats, cohort
 
 def get_model(args, hp):

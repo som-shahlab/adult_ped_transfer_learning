@@ -56,7 +56,7 @@ parser.add_argument(
 parser.add_argument(
 	'--cohort_type',
 	type=str,
-	default='pediatric'
+	default='adult'
 )
 
 parser.add_argument(
@@ -94,6 +94,13 @@ parser.add_argument(
 	type=int,
 	default='26'
 )
+
+parser.add_argument(
+	'--model',
+	type=str,
+	default='lr'
+)
+
 
 
 #-------------------------------------------------------------------
@@ -138,7 +145,7 @@ def get_labels(args, task, cohort):
 	test_cohort = cohort.query(f'test_row_idx>=0 and {task}_fold_id!="ignore"').sort_values(by='test_row_idx') 
 	return test_cohort[['prediction_id', 'test_row_idx', f'{task}']]
 
-def eval_model(args, task, model_path, result_path, X_test, y_test, hp, model):
+def eval_model(args, task, model_path, result_path, X_test, y_test, hp):
 	m = pickle.load(open(f'{model_path}/model.pkl', 'rb'))
 	evaluator = StandardEvaluator(metrics=['auc','auprc','auprc_c','loss_bce','ace_abs_logistic_logit'])
 
@@ -152,18 +159,15 @@ def eval_model(args, task, model_path, result_path, X_test, y_test, hp, model):
 	
 	df_test = evaluator.evaluate(
 		df,
-		strata_vars_eval=['test_group'],
-		label_var=['labels'],
-		pred_prob_var=['pred_probs']
+		strata_vars='test_group',
+		label_var='labels',
+		pred_prob_var='pred_probs'
 	)
 	
-	if model == 'lr':
-		df_test['C'] = hp['C']
-	elif model == 'sgd':
-		df_test['alpha'] = hp['alpha']
-	df_test['model'] = model
+	df_test['C'] = hp['C']
+	df_test['model'] = args.model
 	os.makedirs(f"{result_path}", exist_ok=True)
-	df_test_ci.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
+	df_test.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
 
 
 #-------------------------------------------------------------------
@@ -194,11 +198,11 @@ for tr_cohort_type in ['pediatric', 'adult']:
 	print(f"trained in cohort type: {tr_cohort_type}")
 	for feat_group in ['shared']:
 		print(f"feature set: {feat_group}")
-		model_path = f'{args.model_path}/{cohort_type}/{args.model}/{task}/{feat_group}_feats/best'
+		model_path = f'{args.model_path}/{tr_cohort_type}/{args.model}/{task}/{feat_group}_feats/best'
 		hp = get_model_hp(model_path)
 		print(hp)
 		result_path = f'{args.result_path}/{args.model}/{task}/tr_{tr_cohort_type}_tst_{args.cohort_type}/{feat_group}_feats/best'
-		eval_model(args, task, model_path, result_path, test_X, test_labels, hp, model)
+		eval_model(args, task, model_path, result_path, test_X, test_labels, hp)
 
 
 

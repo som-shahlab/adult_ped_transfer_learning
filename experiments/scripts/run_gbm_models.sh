@@ -10,21 +10,18 @@
 #SBATCH --error=/labs/shahlab/projects/jlemmon/transfer_learning/experiments/logs/gbm/error-sbatchjob.%J.err
 #SBATCH --output=/labs/shahlab/projects/jlemmon/transfer_learning/experiments/logs/gbm/out-sbatchjob.%J.out
 
-#source activate /local-scratch/nigam/envs/jlemmon/conl 
+source /home/${USER}/.bashrc
 source activate /home/jlemmon/.conda/envs/tl
 
-#cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts 
 cd /labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
 
 ## -----------------------------------------------------------
 ## --------------------- job specification -------------------
 ## -----------------------------------------------------------
 COHORT_TYPES=("pediatric" "adult")
-FEAT_GROUPS=("shared" "pediatric" "adult")
-TASKS=('hospital_mortality' 'sepsis' 'LOS_7' 'readmission_30' 'hyperkalemia_lab_mild', 'hyperkalemia_lab_moderate', 'hyperkalemia_lab_severe', 'hyperkalemia_lab_abnormal', 'hypoglycemia_lab_mild', 'hypoglycemia_lab_moderate', 'hypoglycemia_lab_severe', 'hypoglycemia_lab_abnormal', 'neutropenia_lab_mild', 'neutropenia_lab_moderate', 'neutropenia_lab_severe', 'hyponatremia_lab_mild', 'hyponatremia_lab_moderate', 'hyponatremia_lab_severe', 'hyponatremia_lab_abnormal', 'aki_lab_aki1', 'aki_lab_aki2', 'aki_lab_aki3', 'aki_lab_abnormal', 'anemia_lab_mild', 'anemia_lab_moderate', 'anemia_lab_severe', 'anemia_lab_abnormal', 'thrombocytopenia_lab_mild', 'thrombocytopenia_lab_moderate', 'thrombocytopenia_lab_severe', 'thrombocytopenia_lab_abnormal', 'hypoglycemia_dx', 'aki_dx', 'anemia_dx', 'hyperkalemia_dx', 'hyponatremia_dx', 'thrombocytopenia_dx', 'neutropenia_dx')
-MODELS=('gbm' 'gbm_ft')
+FEAT_GROUPS=("shared") # "pediatric" "adult")
+TASKS=("hospital_mortality" "sepsis" "LOS_7" "readmission_30" "hyperkalemia_lab_mild_label" "hyperkalemia_lab_moderate_label" "hyperkalemia_lab_severe_label" "hyperkalemia_lab_abnormal_label" "hypoglycemia_lab_mild_label" "hypoglycemia_lab_moderate_label" "hypoglycemia_lab_severe_label" "hypoglycemia_lab_abnormal_label" "neutropenia_lab_mild_label" "neutropenia_lab_moderate_label" "neutropenia_lab_severe_label" "hyponatremia_lab_mild_label" "hyponatremia_lab_moderate_label" "hyponatremia_lab_severe_label" "hyponatremia_lab_abnormal_label" "aki_lab_aki1_label" "aki_lab_aki2_label" "aki_lab_aki3_label" "aki_lab_abnormal_label" "anemia_lab_mild_label" "anemia_lab_moderate_label" "anemia_lab_severe_label" "anemia_lab_abnormal_label" "thrombocytopenia_lab_mild_label" "thrombocytopenia_lab_moderate_label" "thrombocytopenia_lab_severe_label" "thrombocytopenia_lab_abnormal_label")
 N_BOOT=1000
-
 # number of pipes to execute in parallel
 # this will exec $N_JOBS * $N_TASKS jobs in parallel
 N_JOBS=1
@@ -116,8 +113,8 @@ pipe "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/bin_feat
 
 #pipe "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/bin_features" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/data/cohort" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/hyperparams" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models" "/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/results"  &
 
-let c+=1
-[[ $((c%N_JOBS)) -eq 0 ]] && wait
+#let c+=1
+[[ $((c%10)) -eq 0 ]] && wait
 
 
 echo "DONE"

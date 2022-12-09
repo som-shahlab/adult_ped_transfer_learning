@@ -158,9 +158,9 @@ def eval_model(args, task, model_path, result_path, X_test, y_test, hp):
 	
 	df_test = evaluator.evaluate(
 		df,
-		strata_vars_eval=['test_group'],
-		label_var=['labels'],
-		pred_prob_var=['pred_probs']
+		strata_vars='test_group',
+		label_var='labels',
+		pred_prob_var='pred_probs'
 	)
 	
 	df_test['lr'] = hp['learning_rate']

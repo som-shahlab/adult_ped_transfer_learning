@@ -120,7 +120,7 @@ def load_data(args, feat_group):
 	cohort = cohort.merge(train_rows, how='left', on='prediction_id')
 	cohort['train_row_idx'] = cohort['train_row_idx'].fillna(-1).astype(int)
 
-	return train_feats, test_feats, cohort
+	return train_feats, cohort
 
 def get_labels(args, task, cohort):
 	train_cohort = cohort.query(f'train_row_idx>=0 and {args.task}_fold_id!="ignore"').sort_values(by='train_row_idx')
@@ -151,11 +151,11 @@ print(f"task: {task}")
 
 for cohort_type in ['adult']:
 	print(f"cohort type: {cohort_type}")
-	for feat_group in ['pediatric', 'shared', 'adult']:
+	for feat_group in ['shared']: #['pediatric', 'shared', 'adult']:
 		print(f"feature set: {feat_group}")
 		train_data, cohort = load_data(args, feat_group)
 
-		train_labels, test_labels= get_labels(args, task, cohort)
+		train_labels = get_labels(args, task, cohort)
 		train_X = train_data[list(train_labels['train_row_idx'])]
 
 		model_path = f'{args.model_path}/{cohort_type}/lr/{task}/{feat_group}_feats/best'
