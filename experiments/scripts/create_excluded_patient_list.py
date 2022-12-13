@@ -165,158 +165,158 @@ if __name__ == "__main__":
 # 		for pid in val_pids:
 # 			f.write("%d\n" % pid)
 
-	# patient IDs excluded from CLMBR pretraining
-	# this is for the pediatric only pretraining
-	ex_df = og_df.query("fold_id==['val','test'] | adult_at_admission==1")[['person_id','admit_date','discharge_date']]
-	ex_df = ex_df[~ex_df['person_id'].isin([86281596,72463221, 31542622, 30046470])]
-	ex_df['date']=pd.to_datetime(ex_df['admit_date']).dt.date
+# 	# patient IDs excluded from CLMBR pretraining
+# 	# this is for the pediatric only pretraining
+# 	ex_df = og_df.query("fold_id==['val','test'] | adult_at_admission==1")[['person_id','admit_date','discharge_date']]
+# 	ex_df = ex_df[~ex_df['person_id'].isin([86281596,72463221, 31542622, 30046470])]
+# 	ex_df['date']=pd.to_datetime(ex_df['admit_date']).dt.date
 
-	ex_df.to_csv(
-		os.path.join(
-			args.excluded_patient_ids_fpath,
-			f"{args.excluded_patient_ids_fname}_ped.csv",
-		),
-		index=False
-	)
+# 	ex_df.to_csv(
+# 		os.path.join(
+# 			args.excluded_patient_ids_fpath,
+# 			f"{args.excluded_patient_ids_fname}_ped.csv",
+# 		),
+# 		index=False
+# 	)
 
-	ehr_ml_patient_ids, day_indices = convert_patient_data(
-		args.extracts_fpath, 
-		ex_df['person_id'], 
-		ex_df['date']
-	)
+# 	ehr_ml_patient_ids, day_indices = convert_patient_data(
+# 		args.extracts_fpath, 
+# 		ex_df['person_id'], 
+# 		ex_df['date']
+# 	)
 
-	with open(
-		os.path.join(
-			args.excluded_patient_ids_fpath,
-			f"{args.excluded_patient_ids_fname}_ped.txt"
-		), 
-		"w"
-	) as f:
+# 	with open(
+# 		os.path.join(
+# 			args.excluded_patient_ids_fpath,
+# 			f"{args.excluded_patient_ids_fname}_ped.txt"
+# 		), 
+# 		"w"
+# 	) as f:
 
-		for pid in ehr_ml_patient_ids:
-			f.write("%d\n" % pid)
-
-
-	# patient IDs included for CLMBR pretraining
-	in_df=og_df.query("fold_id not in ['val','test'] and adult_at_admission==0")[['person_id','admit_date','discharge_date']]
-	in_df = in_df[~in_df['person_id'].isin([86281596,72463221, 31542622, 30046470])]
-	in_df['date']=pd.to_datetime(in_df['admit_date']).dt.date
-	# timelines = TimelineReader(os.path.join(args.extracts_fpath, "extract.db"))
-
-	pids, day_indices = convert_patient_data(
-		args.extracts_fpath, 
-		in_df['person_id'], 
-		in_df['date']
-	)
-	print(len(pids))
-	train_end = round(0.8*len(pids))
-
-	random.Random(args.seed).shuffle(pids)
-
-	train_pids = pids[:train_end]
-	val_pids = pids[train_end:]
+# 		for pid in ehr_ml_patient_ids:
+# 			f.write("%d\n" % pid)
 
 
-	with open(
-		os.path.join(
-			args.included_patient_ids_fpath,
-			f"{args.included_patient_ids_train_fname}_ped.txt"
-		), 
-		"w"
-	) as f:
+# 	# patient IDs included for CLMBR pretraining
+# 	in_df=og_df.query("fold_id not in ['val','test'] and adult_at_admission==0")[['person_id','admit_date','discharge_date']]
+# 	in_df = in_df[~in_df['person_id'].isin([86281596,72463221, 31542622, 30046470])]
+# 	in_df['date']=pd.to_datetime(in_df['admit_date']).dt.date
+# 	# timelines = TimelineReader(os.path.join(args.extracts_fpath, "extract.db"))
 
-		for pid in pids:
-			f.write("%d\n" % pid)
+# 	pids, day_indices = convert_patient_data(
+# 		args.extracts_fpath, 
+# 		in_df['person_id'], 
+# 		in_df['date']
+# 	)
+# 	print(len(pids))
+# 	train_end = round(0.8*len(pids))
 
+# 	random.Random(args.seed).shuffle(pids)
 
-	with open(
-		os.path.join(
-			args.included_patient_ids_fpath,
-			f"{args.included_patient_ids_val_fname}_ped.txt"
-		), 
-		"w"
-	) as f:
-
-		for pid in pids:
-			f.write("%d\n" % pid)
-
-	# patient IDs excluded from CLMBR pretraining
-	# this is for the adult only pretraining
-	ex_df=og_df.query("fold_id==['val','test'] | adult_at_admission==0")[['person_id','admit_date','discharge_date']]
-	ex_df = ex_df[~ex_df['person_id'].isin([86281596,72463221, 31542622, 30046470])]
-	ex_df['date']=pd.to_datetime(ex_df['admit_date']).dt.date
-
-	ex_df.to_csv(
-		os.path.join(
-			args.excluded_patient_ids_fpath,
-			f"{args.excluded_patient_ids_fname}_ad.csv",
-		),
-		index=False
-	)
-
-	ehr_ml_patient_ids, day_indices = convert_patient_data(
-		args.extracts_fpath, 
-		ex_df['person_id'], 
-		ex_df['date']
-	)
-
-	with open(
-		os.path.join(
-			args.excluded_patient_ids_fpath,
-			f"{args.excluded_patient_ids_fname}_ad.txt"
-		), 
-		"w"
-	) as f:
-
-		for pid in ehr_ml_patient_ids:
-			f.write("%d\n" % pid)
+# 	train_pids = pids[:train_end]
+# 	val_pids = pids[train_end:]
 
 
-	# patient IDs included for CLMBR pretraining
-	in_df=og_df.query("fold_id not in ['val','test'] and adult_at_admission==1")[['person_id','admit_date','discharge_date']]
-	# in_df = ex_df[~ex_df['person_id'].isin([86281596,72463221, 31542622, 30046470])]
-	in_df['date']=pd.to_datetime(in_df['admit_date']).dt.date
-	# timelines = TimelineReader(os.path.join(args.extracts_fpath, "extract.db"))
+# 	with open(
+# 		os.path.join(
+# 			args.included_patient_ids_fpath,
+# 			f"{args.included_patient_ids_train_fname}_ped.txt"
+# 		), 
+# 		"w"
+# 	) as f:
 
-	pids, day_indices = convert_patient_data(
-		args.extracts_fpath, 
-		in_df['person_id'], 
-		in_df['date']
-	)
+# 		for pid in pids:
+# 			f.write("%d\n" % pid)
+
+
+# 	with open(
+# 		os.path.join(
+# 			args.included_patient_ids_fpath,
+# 			f"{args.included_patient_ids_val_fname}_ped.txt"
+# 		), 
+# 		"w"
+# 	) as f:
+
+# 		for pid in pids:
+# 			f.write("%d\n" % pid)
+
+# 	# patient IDs excluded from CLMBR pretraining
+# 	# this is for the adult only pretraining
+# 	ex_df=og_df.query("fold_id==['val','test'] | adult_at_admission==0")[['person_id','admit_date','discharge_date']]
+# 	ex_df = ex_df[~ex_df['person_id'].isin([86281596,72463221, 31542622, 30046470])]
+# 	ex_df['date']=pd.to_datetime(ex_df['admit_date']).dt.date
+
+# 	ex_df.to_csv(
+# 		os.path.join(
+# 			args.excluded_patient_ids_fpath,
+# 			f"{args.excluded_patient_ids_fname}_ad.csv",
+# 		),
+# 		index=False
+# 	)
+
+# 	ehr_ml_patient_ids, day_indices = convert_patient_data(
+# 		args.extracts_fpath, 
+# 		ex_df['person_id'], 
+# 		ex_df['date']
+# 	)
+
+# 	with open(
+# 		os.path.join(
+# 			args.excluded_patient_ids_fpath,
+# 			f"{args.excluded_patient_ids_fname}_ad.txt"
+# 		), 
+# 		"w"
+# 	) as f:
+
+# 		for pid in ehr_ml_patient_ids:
+# 			f.write("%d\n" % pid)
+
+
+# 	# patient IDs included for CLMBR pretraining
+# 	in_df=og_df.query("fold_id not in ['val','test'] and adult_at_admission==1")[['person_id','admit_date','discharge_date']]
+# 	# in_df = ex_df[~ex_df['person_id'].isin([86281596,72463221, 31542622, 30046470])]
+# 	in_df['date']=pd.to_datetime(in_df['admit_date']).dt.date
+# 	# timelines = TimelineReader(os.path.join(args.extracts_fpath, "extract.db"))
+
+# 	pids, day_indices = convert_patient_data(
+# 		args.extracts_fpath, 
+# 		in_df['person_id'], 
+# 		in_df['date']
+# 	)
 	
-	# pids = timelines.get_patient_ids()
-	# pids = list(set(pids).difference(set(ehr_ml_patient_ids)))
-	print(len(pids))
-	train_end = round(0.8*len(pids))
+# 	# pids = timelines.get_patient_ids()
+# 	# pids = list(set(pids).difference(set(ehr_ml_patient_ids)))
+# 	print(len(pids))
+# 	train_end = round(0.8*len(pids))
 
-	random.Random(args.seed).shuffle(pids)
+# 	random.Random(args.seed).shuffle(pids)
 
-	train_pids = pids[:train_end]
-	val_pids = pids[train_end:]
-
-
-	with open(
-		os.path.join(
-			args.included_patient_ids_fpath,
-			f"{args.included_patient_ids_train_fname}_ad.txt"
-		), 
-		"w"
-	) as f:
-
-		for pid in pids:
-			f.write("%d\n" % pid)
+# 	train_pids = pids[:train_end]
+# 	val_pids = pids[train_end:]
 
 
-	with open(
-		os.path.join(
-			args.included_patient_ids_fpath,
-			f"{args.included_patient_ids_val_fname}_ad.txt"
-		), 
-		"w"
-	) as f:
+# 	with open(
+# 		os.path.join(
+# 			args.included_patient_ids_fpath,
+# 			f"{args.included_patient_ids_train_fname}_ad.txt"
+# 		), 
+# 		"w"
+# 	) as f:
 
-		for pid in pids:
-			f.write("%d\n" % pid)
+# 		for pid in pids:
+# 			f.write("%d\n" % pid)
+
+
+# 	with open(
+# 		os.path.join(
+# 			args.included_patient_ids_fpath,
+# 			f"{args.included_patient_ids_val_fname}_ad.txt"
+# 		), 
+# 		"w"
+# 	) as f:
+
+# 		for pid in pids:
+# 			f.write("%d\n" % pid)
 
 	# patient IDs excluded from CLMBR pretraining
 	# this is for the all patient pretraining
@@ -386,3 +386,85 @@ if __name__ == "__main__":
 
 # 		for pid in val_pids:
 # 			f.write("%d\n" % pid)
+	for percent in list(range(5,100,5)):
+		cons_df=read_file(
+			os.path.join(
+				args.cohort_fpath,
+				f"cohort_split_no_nb_constrain_{percent}.parquet",
+			)
+		)
+
+		# patient IDs excluded from CLMBR pretraining
+		# this is for the constrained pediatric only finetuning
+		ex_df = cons_df.query("constrain==0 | fold_id==['val','test']")[['person_id','admit_date','discharge_date']]
+		ex_df = ex_df[~ex_df['person_id'].isin([86281596,72463221, 31542622, 30046470])]
+		ex_df['date']=pd.to_datetime(ex_df['admit_date']).dt.date
+
+		ex_df.to_csv(
+			os.path.join(
+				args.excluded_patient_ids_fpath,
+				f"{args.excluded_patient_ids_fname}_ped_cons_{percent}.csv",
+			),
+			index=False
+		)
+
+		ehr_ml_patient_ids, day_indices = convert_patient_data(
+			args.extracts_fpath, 
+			ex_df['person_id'], 
+			ex_df['date']
+		)
+
+		with open(
+			os.path.join(
+				args.excluded_patient_ids_fpath,
+				f"{args.excluded_patient_ids_fname}_ped_cons_{percent}.txt"
+			), 
+			"w"
+		) as f:
+
+			for pid in ehr_ml_patient_ids:
+				f.write("%d\n" % pid)
+
+
+		# patient IDs included for CLMBR pretraining
+		in_df=cons_df.query("constrain==1 and adult_at_admission==0 and fold_id!='val'")[['person_id','admit_date','discharge_date']]
+		in_df = in_df[~in_df['person_id'].isin([86281596,72463221, 31542622, 30046470])]
+		in_df['date']=pd.to_datetime(in_df['admit_date']).dt.date
+		# timelines = TimelineReader(os.path.join(args.extracts_fpath, "extract.db"))
+
+		pids, day_indices = convert_patient_data(
+			args.extracts_fpath, 
+			in_df['person_id'], 
+			in_df['date']
+		)
+		print(len(pids))
+		train_end = round(0.8*len(pids))
+
+		random.Random(args.seed).shuffle(pids)
+
+		train_pids = pids[:train_end]
+		val_pids = pids[train_end:]
+
+
+		with open(
+			os.path.join(
+				args.included_patient_ids_fpath,
+				f"{args.included_patient_ids_train_fname}_ped_cons_{percent}.txt"
+			), 
+			"w"
+		) as f:
+
+			for pid in pids:
+				f.write("%d\n" % pid)
+
+
+		with open(
+			os.path.join(
+				args.included_patient_ids_fpath,
+				f"{args.included_patient_ids_val_fname}_ped_cons_{percent}.txt"
+			), 
+			"w"
+		) as f:
+
+			for pid in pids:
+				f.write("%d\n" % pid)

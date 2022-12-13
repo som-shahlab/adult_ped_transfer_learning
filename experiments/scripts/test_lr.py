@@ -101,6 +101,12 @@ parser.add_argument(
 	default='lr'
 )
 
+parser.add_argument(
+	"--constrain",
+	type = str2bool,
+	default = "false",
+	help = "whether to use constrained ft models",
+)
 
 
 #-------------------------------------------------------------------
@@ -122,7 +128,7 @@ def get_model_hp(model_path):
 	return yaml.safe_load(open(f"{model_path}/hp.yml"))
 
 def load_data(args):
-
+	
 	cohort = read_file(
 			os.path.join(
 				args.cohort_path,
@@ -192,7 +198,11 @@ print(f"Testing on: {args.cohort_type}")
 
 test_labels= get_labels(args, task, cohort)
 test_X = test_data[list(test_labels['test_row_idx'])]
-for tr_cohort_type in ['pediatric', 'adult']:
+if args.constrain:
+	train_cohorts = ['constrain']
+else:
+	train_cohorts = ['pediatric', 'adult']
+for tr_cohort_type in train_cohorts:
 	if args.model == 'lr_ft' and tr_cohort_type == 'pediatric':
 		continue
 	print(f"trained in cohort type: {tr_cohort_type}")
@@ -203,10 +213,3 @@ for tr_cohort_type in ['pediatric', 'adult']:
 		print(hp)
 		result_path = f'{args.result_path}/{args.model}/{task}/tr_{tr_cohort_type}_tst_{args.cohort_type}/{feat_group}_feats/best'
 		eval_model(args, task, model_path, result_path, test_X, test_labels, hp)
-
-
-
-
-
-
-

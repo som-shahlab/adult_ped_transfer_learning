@@ -86,13 +86,23 @@ parser.add_argument(
 	default = "ad"
 )
 
-
 parser.add_argument(
 	"--eval_cohort",
 	type = str,
 	default = "ped"
 )
 
+parser.add_argument(
+	"--constrain",
+	type = str2bool,
+	default = "false",
+	help = "use constrained features",
+)
+
+parser.add_argument(
+	"--percent",
+	type = int,
+	default = 5)
 
 parser.add_argument(
 	"--overwrite",
@@ -123,7 +133,7 @@ def read_file(filename, columns=None, **kwargs):
 	elif load_extension == ".csv":
 		return pd.read_csv(filename, usecols=columns, **kwargs)	
 
-def get_data(features_fpath):
+def get_data(features_fpath, ri=False):
 	"""
 	grab data
 	"""
@@ -134,7 +144,12 @@ def get_data(features_fpath):
 	ehr_ml_patient_ids=pickle.load(gzip.open(os.path.join(features_fpath,"ehr_ml_patient_ids.gz"),'rb'))
 	day_indices=pickle.load(gzip.open(os.path.join(features_fpath,"day_indices.gz"),'rb'))
 
-	return features,labels,prediction_ids,ehr_ml_patient_ids,day_indices
+	if ri:
+		row_indices=pickle.load(gzip.open(os.path.join(features_fpath,"row_indices.gz"),'rb'))
+
+		return features,labels,prediction_ids,ehr_ml_patient_ids,day_indices, row_indices
+	else:
+		return features,labels,prediction_ids,ehr_ml_patient_ids,day_indices
 
 def get_feat_idx(feat_pids, cohort_pids):
 	# To save space on generated features all tasks that have an index date of midnight on admission share features.
@@ -142,6 +157,37 @@ def get_feat_idx(feat_pids, cohort_pids):
 	# midnight of admission day. Therefore must get the indices of all train patients that are not ignored by task
 	# using this function.
 	return feat_pids[feat_pids.isin(cohort_pids.values)].index.values
+
+def get_xy_constrain(task, features, labels, prediction_ids, cohort, cohort_group, row_indices, return_test=False):
+	
+
+	cohort = cohort.query('adult_at_admission==0')
+	cohort = cohort.query('constrain==1 | fold_id=="test"')
+	
+	
+	if return_test:
+		prediction_id_test = prediction_ids[task]['test']
+		X_test = features[task if task == 'readmission_30' else 'all']['test']
+		y_test = np.array(labels[task]['test']).astype(np.int32)
+		
+		tst_idx = row_indices[task]['test']
+	
+		return (X_test[tst_idx],y_test,prediction_id_test)
+	
+	prediction_id_train=prediction_ids[task]['train']
+	prediction_id_val=prediction_ids[task]['val']
+
+	X_train = features[task if task == 'readmission_30' else 'all']['train']
+	y_train = np.array(labels[task]['train']).astype(np.int32)
+	
+	X_val = features[task if task == 'readmission_30' else 'all']['val']
+	y_val = np.array(labels[task]['val']).astype(np.int32)
+	
+	tr_idx = row_indices[task]['train']
+	v_idx = row_indices[task]['val']
+
+	return (X_train[tr_idx],y_train,prediction_id_train,X_val[v_idx],y_val,prediction_id_val)
+
 
 def get_xy(task, features, labels, prediction_ids, cohort, cohort_group, return_test=False):
 	
@@ -155,31 +201,40 @@ def get_xy(task, features, labels, prediction_ids, cohort, cohort_group, return_
 		prediction_id_test = prediction_ids[task]['test']
 		X_test = features[task if task == 'readmission_30' else 'all']['test']
 		y_test = np.array(tst_c[task].values).astype(np.int32)
-		
+
 		if task == 'readmission_30':
 			return (X_test,y_test,prediction_id_test)
 		
 		tst_idx = get_feat_idx(prediction_id_test, tst_c['prediction_id'])
 		return (X_test[tst_idx],y_test,prediction_id_test[tst_idx])
-		
+	
 	tr_c = cohort.query(f"{task}_fold_id!=['test','val','ignore']")
 	v_c = cohort.query(f"{task}_fold_id==['val']")
 	
 	prediction_id_train=prediction_ids[task]['train']
 	prediction_id_val=prediction_ids[task]['val']
-	
+
 	X_train = features[task if task == 'readmission_30' else 'all']['train']
-	y_train = np.array(tr_c[task].values).astype(np.int32)
-	
+
+	if task == 'readmission_30':
+		y_train = np.array(labels[task]['train']).astype(np.int32)
+	else:
+		y_train = np.array(tr_c[task].values).astype(np.int32)
+
 	X_val = features[task if task == 'readmission_30' else 'all']['val']
-	y_val = np.array(v_c[task].values).astype(np.int32)
+	
+	if task == 'readmission_30':
+		y_val = np.array(labels[task]['val']).astype(np.int32)
+	else:
+		y_val = np.array(v_c[task].values).astype(np.int32)
 	
 	if task == 'readmission_30':
 		return (X_train,y_train,prediction_id_train,X_val,y_val,prediction_id_val)
 	
+
 	tr_idx = get_feat_idx(prediction_id_train, tr_c['prediction_id'])
 	v_idx = get_feat_idx(prediction_id_val, v_c['prediction_id'])
-	
+
 	return (X_train[tr_idx],y_train,prediction_id_train[tr_idx],X_val[v_idx],y_val,prediction_id_val[v_idx])
 #-------------------------------------------------------------------
 # run
@@ -194,13 +249,22 @@ C = [1.0e-06,1.0e-05,0.0001,0.001,0.01,0.1,1]
 # set seed
 np.random.seed(args.seed)
 
-cohort = read_file(
-	os.path.join(
-		args.cohort_path,
-		"cohort_split_no_nb.parquet"
-	),
-	engine='pyarrow'
-)
+if args.constrain:
+	cohort = read_file(
+		os.path.join(
+			args.cohort_path,
+			f"cohort_split_no_nb_constrain_{args.percent}.parquet"
+		),
+		engine='pyarrow'
+	)
+else:
+	cohort = read_file(
+		os.path.join(
+			args.cohort_path,
+			"cohort_split_no_nb.parquet"
+		),
+		engine='pyarrow'
+	)
 # remove problematic patients that have timeline issues
 cohort_df = cohort[~cohort['person_id'].isin([86281596,72463221, 31542622, 30046470])]
 
@@ -210,16 +274,18 @@ tasks =['hospital_mortality','sepsis','LOS_7','readmission_30','hyperkalemia_lab
 # initialize evaluator
 evaluator = StandardEvaluator()
 
-for cohort in ['ped']:#['all', 'ad']:
+for cohort in ['all']:#ad']:#['all', 'ad', 'ped']:
 	print(f'Trained on cohort {cohort}')
 	for train_type in ['pretrained', 'finetuned']:
+		if train_type == 'pretrained' and args.constrain:
+			continue
 		train_feat_dir=os.path.join(
 			args.artifacts_fpath,
 			train_type,
 			"features",
 			cohort,
 			f"gru_sz_800_do_0_lr_{args.lr}_l2_0",
-			args.train_cohort
+			args.train_cohort if args.train_cohort != 'constrain' else f'constrain_{args.percent}'
 		)
 
 		test_feat_dir=os.path.join(
@@ -231,7 +297,11 @@ for cohort in ['ped']:#['all', 'ad']:
 			args.eval_cohort
 		)
 		# get data
-		tr_features,tr_labels,tr_prediction_ids,tr_ehr_ml_patient_ids,tr_day_indices = get_data(train_feat_dir)
+		if args.train_cohort == 'constrain':
+			tr_features,tr_labels,tr_prediction_ids,tr_ehr_ml_patient_ids,tr_day_indices, tr_row_indices = get_data(train_feat_dir, True)
+		else:
+			tr_features,tr_labels,tr_prediction_ids,tr_ehr_ml_patient_ids,tr_day_indices = get_data(train_feat_dir)
+			
 		tst_features,tst_labels,tst_prediction_ids,tst_ehr_ml_patient_ids,tst_day_indices = get_data(test_feat_dir)
 		print(f'{train_type}')
 		for task in tasks:
@@ -240,17 +310,26 @@ for cohort in ['ped']:#['all', 'ad']:
 			os.makedirs(f"{adapter_save_path}",exist_ok=True)
 			os.makedirs(f"{result_save_path}",exist_ok=True)
 			print(f"task: {task}")
-
 			# get data
-			X_train,y_train,prediction_id_train,X_val,y_val,prediction_id_val = get_xy(
-				task,
-				tr_features,
-				tr_labels,
-				tr_prediction_ids,
-				cohort_df,
-				args.train_cohort
-			)
-			
+			if args.train_cohort == 'constrain':
+				X_train,y_train,prediction_id_train,X_val,y_val,prediction_id_val = get_xy_constrain(
+					task,
+					tr_features,
+					tr_labels,
+					tr_prediction_ids,
+					cohort_df,
+					args.train_cohort,
+					tr_row_indices
+				)
+			else:
+				X_train,y_train,prediction_id_train,X_val,y_val,prediction_id_val = get_xy(
+					task,
+					tr_features,
+					tr_labels,
+					tr_prediction_ids,
+					cohort_df,
+					args.train_cohort
+				)
 			X_test,y_test,prediction_id_test = get_xy(
 				task,
 				tst_features,
@@ -258,9 +337,9 @@ for cohort in ['ped']:#['all', 'ad']:
 				tst_prediction_ids,
 				cohort_df,
 				args.eval_cohort,
-				True
+				return_test=True
 			)
-
+			
 			best_loss = np.inf
 			best_adapter = None
 			for c in C:
