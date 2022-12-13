@@ -51,7 +51,7 @@ parser.add_argument(
 parser.add_argument(
     '--info_path',
     type=str,
-    default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models/clmbr/pretrained/info/finetune/info.json',
+    default='/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models/clmbr/pretrained/info/finetune',
     help='Base path for the pretrained model.'
 )
 
@@ -195,6 +195,20 @@ parser.add_argument(
 )
 
 parser.add_argument(
+	'--percent',
+	type=int,
+	default=5,
+	help='Percentage of constrained training data.'
+)
+
+parser.add_argument(
+	"--constrain",
+	type = str2bool,
+	default = "false",
+	help = "whether to use constrained ft model",
+)
+
+parser.add_argument(
     '--logging',
     type=str2bool,
     default="True",
@@ -204,8 +218,9 @@ parser.add_argument(
 def finetune(args, cl_hp, clmbr_save_path):
 	# Run finetuning on pretrained CLMBR model
 	og_model_path = f"{clmbr_save_path}/original_model"
-	ft_model_path = f"{clmbr_save_path}/finetune_model"
-	clmbr_model = ehr_ml.clmbr.CLMBR.from_pretrained(og_model_path, args.device)
+	ft_model_path = f"{clmbr_save_path}/finetune_model{f'_constrain_{args.percent}' if args.constrain else ''}"
+	
+	clmbr_model = ehr_ml.clmbr.CLMBR.from_pretrained(og_model_path).to(args.device)
 
 	# Modify CLMBR config settings
 	clmbr_model.config["model_dir"] = ft_model_path
@@ -213,7 +228,8 @@ def finetune(args, cl_hp, clmbr_save_path):
 	clmbr_model.config["eval_batch_size"] = cl_hp['eval_batch_size']
 	clmbr_model.config["epochs_per_cycle"] = args.epochs
 	clmbr_model.config['early_stopping_patience'] = args.patience
-
+	
+	
 	trainer = Trainer(clmbr_model)
 	
 	# set up logging if flag set
@@ -229,6 +245,11 @@ def finetune(args, cl_hp, clmbr_save_path):
 		os.makedirs(ft_model_path, exist_ok=True)
 	elif not os.path.exists(ft_model_path):
 		os.makedirs(ft_model_path, exist_ok=True)
+		
+	with open(f"{ft_model_path}/config.json", 'w') as f:
+		f.write(json.dumps(clmbr_model.config))
+		
+	shutil.copyfile(f"{args.info_path}{f'_constrain_{args.percent}' if args.constrain else ''}/info.json", f"{ft_model_path}/info.json")
 	
 	dataset = PatientTimelineDataset(
 		os.path.join(args.extract_path, "extract.db"),
@@ -244,7 +265,7 @@ def prep_finetune_dir(args, source_path, target_path):
 	t_path = f"{target_path}/original_model"
 	os.makedirs(t_path,exist_ok=True)
 	shutil.copytree(source_path, t_path, dirs_exist_ok=True)
-	shutil.copyfile(args.info_path, f'{t_path}/info.json')
+	shutil.copyfile(f"{args.info_path}{f'_constrain_{args.percent}' if args.constrain else ''}/info.json", f'{t_path}/info.json')
 
 if __name__ == '__main__':
     
