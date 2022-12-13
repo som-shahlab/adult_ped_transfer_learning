@@ -9,6 +9,8 @@ from sklearn.linear_model import SGDClassifier, LogisticRegression
 from sklearn.model_selection import ParameterGrid
 from sklearn.metrics import log_loss
 
+from prediction_utils.util import str2bool
+
 parser=argparse.ArgumentParser()
 
 parser.add_argument(
@@ -71,6 +73,13 @@ parser.add_argument(
 	default='lr'
 )
 
+parser.add_argument(
+	"--constrain",
+	type = str2bool,
+	default = "false",
+	help = "whether to use constrained ft models",
+)
+
 def read_file(filename, columns=None, **kwargs):
 	'''
 	Helper function to read parquet and csv files into DataFrame
@@ -83,14 +92,22 @@ def read_file(filename, columns=None, **kwargs):
 		return pd.read_csv(filename, usecols=columns, **kwargs)
 
 def load_data(args):
-	
-	cohort = read_file(
-			os.path.join(
-				args.cohort_path,
-				"cohort_split_no_nb.parquet"
-			),
-			engine='pyarrow'
-		)
+	if args.constrain:
+		cohort = read_file(
+				os.path.join(
+					args.cohort_path,
+					"cohort_split_no_nb_constrain.parquet"
+				),
+				engine='pyarrow'
+			)
+	else:
+		cohort = read_file(
+				os.path.join(
+					args.cohort_path,
+					"cohort_split_no_nb.parquet"
+				),
+				engine='pyarrow'
+			)
 	
 	fn = f'{args.bin_path}/{args.cohort_type}'
 	
@@ -105,6 +122,10 @@ def load_data(args):
 	
 	cohort = cohort.merge(val_rows, how='left', on='prediction_id')
 	cohort['val_row_idx'] = cohort['val_row_idx'].fillna(-1).astype(int)
+	
+	if args.constrain:
+		cohort = cohort.query('constrain==1')
+	
 	return train_feats, val_feats, cohort
 
 def get_model(args, hp):
@@ -118,7 +139,10 @@ def get_model(args, hp):
 def train_model(args, hp, train_X, train_labels, val_X, val_labels):
 	print('Initialized model with hyperparams:')
 	print(hp)
-	model_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
+	if args.constrain:
+		model_save_path = f'{args.model_path}/constrain/{args.model}/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
+	else:
+		model_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
 	os.makedirs(model_save_path,exist_ok=True)
 
 	model = get_model(args, hp)
@@ -145,6 +169,7 @@ def get_labels(args, task, cohort):
 	train_labels = train_cohort[['prediction_id', 'train_row_idx', f'{args.task}']]
 	val_cohort = cohort.query(f'val_row_idx>=0 and {args.task}_fold_id!="ignore"').sort_values(by='val_row_idx')
 	val_labels = val_cohort[['prediction_id', 'val_row_idx', f'{args.task}']]
+
 	return train_labels, val_labels
 
 if __name__ == '__main__':
@@ -168,7 +193,10 @@ if __name__ == '__main__':
 	train_labels, val_labels = get_labels(args, args.task, cohort)
 	train_X = train_data[list(train_labels['train_row_idx'])]
 	val_X = val_data[list(val_labels['val_row_idx'])]
-	best_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/best'
+	if args.constrain:
+		best_save_path = f'{args.model_path}/constrain/{args.model}/{args.task}/{args.feat_group}_feats/best'
+	else:
+		best_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/best'
 	os.makedirs(best_save_path, exist_ok=True)
 	best_model = None
 	best_loss = 999999999
