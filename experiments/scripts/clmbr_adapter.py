@@ -267,14 +267,14 @@ else:
 	)
 # remove problematic patients that have timeline issues
 cohort_df = cohort[~cohort['person_id'].isin([86281596,72463221, 31542622, 30046470])]
-
+cohort_df = cohort_df.query('pediatric_age_group!="term neonatal"')
 # parse tasks and train_group
 tasks =['hospital_mortality','sepsis','LOS_7','readmission_30','hyperkalemia_lab_mild_label','hyperkalemia_lab_moderate_label','hyperkalemia_lab_severe_label','hyperkalemia_lab_abnormal_label','hypoglycemia_lab_mild_label','hypoglycemia_lab_moderate_label','hypoglycemia_lab_severe_label','hypoglycemia_lab_abnormal_label','neutropenia_lab_mild_label','neutropenia_lab_moderate_label','neutropenia_lab_severe_label','hyponatremia_lab_mild_label','hyponatremia_lab_moderate_label','hyponatremia_lab_severe_label','hyponatremia_lab_abnormal_label','aki_lab_aki1_label','aki_lab_aki2_label','aki_lab_aki3_label','aki_lab_abnormal_label','anemia_lab_mild_label','anemia_lab_moderate_label','anemia_lab_severe_label','anemia_lab_abnormal_label','thrombocytopenia_lab_mild_label','thrombocytopenia_lab_moderate_label','thrombocytopenia_lab_severe_label','thrombocytopenia_lab_abnormal_label']
 
 # initialize evaluator
 evaluator = StandardEvaluator()
 
-for cohort in ['all']:#ad']:#['all', 'ad', 'ped']:
+for cohort in ['all', 'ad']:#['all', 'ad', 'ped']:
 	print(f'Trained on cohort {cohort}')
 	for train_type in ['pretrained', 'finetuned']:
 		if train_type == 'pretrained' and args.constrain:

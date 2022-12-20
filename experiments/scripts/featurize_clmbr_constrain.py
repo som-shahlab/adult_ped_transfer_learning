@@ -66,18 +66,11 @@ parser.add_argument(
 )
 
 parser.add_argument(
-	"--percent",
-	type=int,
-	default=5
-)
-
-parser.add_argument(
 	"--overwrite",
 	type = str2bool,
 	default = "false",
 	help = "whether to overwrite existing artifacts",
 )
-
 
 def read_file(filename, columns=None, **kwargs):
 	'''
@@ -100,17 +93,17 @@ if __name__ == "__main__":
 	tasks = ['hospital_mortality','sepsis','LOS_7','readmission_30','hyperkalemia_lab_mild_label','hyperkalemia_lab_moderate_label','hyperkalemia_lab_severe_label','hyperkalemia_lab_abnormal_label','hypoglycemia_lab_mild_label','hypoglycemia_lab_moderate_label','hypoglycemia_lab_severe_label','hypoglycemia_lab_abnormal_label','neutropenia_lab_mild_label','neutropenia_lab_moderate_label','neutropenia_lab_severe_label','hyponatremia_lab_mild_label','hyponatremia_lab_moderate_label','hyponatremia_lab_severe_label','hyponatremia_lab_abnormal_label','aki_lab_aki1_label','aki_lab_aki2_label','aki_lab_aki3_label','aki_lab_abnormal_label','anemia_lab_mild_label','anemia_lab_moderate_label','anemia_lab_severe_label','anemia_lab_abnormal_label','thrombocytopenia_lab_mild_label','thrombocytopenia_lab_moderate_label','thrombocytopenia_lab_severe_label','thrombocytopenia_lab_abnormal_label']
 
 
-	cohort = read_file(
-		os.path.join(
-			args.cohort_path,
-			f"cohort_split_no_nb_constrain_{args.percent}.parquet"
-		),
-		engine='pyarrow'
-	)
-
-	cohort = cohort[~cohort['person_id'].isin([86281596,72463221, 31542622, 30046470])]
 	lr = '0.0001'
-	for percent in [5]:#list(range(5,100,5)):
+	for percent in list(range(10,100,5)):
+		
+		cohort = read_file(
+			os.path.join(
+				args.cohort_path,
+				f"cohort_split_no_nb_constrain_{percent}.parquet"
+			),
+			engine='pyarrow'
+		)
+		cohort = cohort[~cohort['person_id'].isin([86281596,72463221, 31542622, 30046470])]
 
 		clmbr_model_path=os.path.join(
 			args.artifacts_fpath,

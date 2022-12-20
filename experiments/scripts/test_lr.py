@@ -102,6 +102,12 @@ parser.add_argument(
 )
 
 parser.add_argument(
+	'--percent',
+	type=int,
+	default=5
+)
+
+parser.add_argument(
 	"--constrain",
 	type = str2bool,
 	default = "false",
@@ -136,6 +142,7 @@ def load_data(args):
 			),
 			engine='pyarrow'
 		)
+	cohort = cohort.query('pediatric_age_group!="term neonatal"')
 
 	fn = f'{args.bin_path}/{args.cohort_type}'
 
@@ -208,8 +215,15 @@ for tr_cohort_type in train_cohorts:
 	print(f"trained in cohort type: {tr_cohort_type}")
 	for feat_group in ['shared']:
 		print(f"feature set: {feat_group}")
-		model_path = f'{args.model_path}/{tr_cohort_type}/{args.model}/{task}/{feat_group}_feats/best'
+		if args.constrain:
+			model_path = f'{args.model_path}/{tr_cohort_type}/{args.model}/{task}/{feat_group}_feats_{args.percent}/best'
+		else:
+			model_path = f'{args.model_path}/{tr_cohort_type}/{args.model}/{task}/{feat_group}_feats/best'
 		hp = get_model_hp(model_path)
 		print(hp)
-		result_path = f'{args.result_path}/{args.model}/{task}/tr_{tr_cohort_type}_tst_{args.cohort_type}/{feat_group}_feats/best'
+		if args.constrain:
+			result_path = f'{args.result_path}/{args.model}/{task}/tr_{tr_cohort_type}_tst_{args.cohort_type}/{feat_group}_feats_{args.percent}/best'
+		else:
+			result_path = f'{args.result_path}/{args.model}/{task}/tr_{tr_cohort_type}_tst_{args.cohort_type}/{feat_group}_feats/best'
+			
 		eval_model(args, task, model_path, result_path, test_X, test_labels, hp)

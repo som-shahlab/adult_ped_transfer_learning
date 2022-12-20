@@ -74,6 +74,12 @@ parser.add_argument(
 )
 
 parser.add_argument(
+	'--percent',
+	type=int,
+	default=5
+)
+
+parser.add_argument(
 	"--constrain",
 	type = str2bool,
 	default = "false",
@@ -96,7 +102,7 @@ def load_data(args):
 		cohort = read_file(
 				os.path.join(
 					args.cohort_path,
-					"cohort_split_no_nb_constrain.parquet"
+					f"cohort_split_no_nb_constrain_{args.percent}.parquet"
 				),
 				engine='pyarrow'
 			)
@@ -108,7 +114,7 @@ def load_data(args):
 				),
 				engine='pyarrow'
 			)
-	
+	cohort = cohort.query('pediatric_age_group!="term neonatal"')
 	fn = f'{args.bin_path}/{args.cohort_type}'
 	
 	train_feats = sp.load_npz(f'{fn}/train/{args.feat_group}_feats.npz')
@@ -188,13 +194,12 @@ if __name__ == '__main__':
 	)
 	
 	train_data, val_data, cohort = load_data(args)
-	
 	print(f'Training models for {args.task} task...')
 	train_labels, val_labels = get_labels(args, args.task, cohort)
 	train_X = train_data[list(train_labels['train_row_idx'])]
 	val_X = val_data[list(val_labels['val_row_idx'])]
 	if args.constrain:
-		best_save_path = f'{args.model_path}/constrain/{args.model}/{args.task}/{args.feat_group}_feats/best'
+		best_save_path = f'{args.model_path}/constrain/{args.model}/{args.task}/{args.feat_group}_feats_{args.percent}/best'
 	else:
 		best_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/best'
 	os.makedirs(best_save_path, exist_ok=True)

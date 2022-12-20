@@ -22,7 +22,7 @@ TRAIN_OVERWRITE='False'
 FEATURIZE_OVERWRITE='False'
 EARLY_STOPPING='True'
 
-GPU="0"
+GPU="1"
 SIZE=800
 EPOCHS=100
 BATCH_SIZE=4000
@@ -64,25 +64,29 @@ export CUDA_VISIBLE_DEVICES="$GPU"
 # done
 
 
-for (( t=0; t<$N_GROUPS; t++ )); do
-    for (( i=0; i<$N_ENCODERS; i++ )); do
-		for (( l=0; l<$N_LEARN_RATES; l++ )) do
-			for (( r=0; r<$N_L2_VALS; r++ )) do
-				for ((p=0; p <$N_PERCENTS; p++)) do
-					python -u finetune_clmbr.py \
-						--cohort_type=${PT_GROUPS[$t]} \
-						--encoder=${ENCODERS[$i]} \
-						--lr=${LEARN_RATES[$l]} \
-						--constrain="true"\
-						--percent=${PERCENTS[$p]} \
-						--overwrite="true"\
-						--l2=${L2_VALS[$r]} \
-						--dropout="$DROPOUT" \
-						--epochs="$EPOCHS" \
-						--batch_size="$BATCH_SIZE" \
-						--size="$SIZE" 
-				done
-			done
-		done
-	done
-done
+# for (( t=0; t<$N_GROUPS; t++ )); do
+#     for (( i=0; i<$N_ENCODERS; i++ )); do
+# 		for (( l=0; l<$N_LEARN_RATES; l++ )) do
+# 			for (( r=0; r<$N_L2_VALS; r++ )) do
+# 				for ((p=0; p <$N_PERCENTS; p++)) do
+# 					python -u finetune_clmbr.py \
+# 						--cohort_type=${PT_GROUPS[$t]} \
+# 						--encoder=${ENCODERS[$i]} \
+# 						--lr=${LEARN_RATES[$l]} \
+# 						--constrain="true"\
+# 						--percent=${PERCENTS[$p]} \
+# 						--overwrite="true"\
+# 						--l2=${L2_VALS[$r]} \
+# 						--dropout="$DROPOUT" \
+# 						--epochs="$EPOCHS" \
+# 						--batch_size="$BATCH_SIZE" \
+# 						--size="$SIZE" 
+# 				done
+# 			done
+# 		done
+# 	done
+# done
+
+
+python -u featurize_clmbr_constrain.py --overwrite="true"\
+
