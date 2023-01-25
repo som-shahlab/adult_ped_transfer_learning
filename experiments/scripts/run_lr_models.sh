@@ -18,9 +18,9 @@ cd /labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
 ## -----------------------------------------------------------
 ## --------------------- job specification -------------------
 ## -----------------------------------------------------------
-COHORT_TYPES=("pediatric") # "adult")
-FEAT_GROUPS=("shared") # "pediatric" "adult")
-MODELS=("lr") # "lr_ft")
+COHORT_TYPES=("adult" "pediatric")
+FEAT_GROUPS=("shared")
+MODELS=("lr")
 PERCENTS=(5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95)
 TASKS=('hospital_mortality' 'sepsis' 'LOS_7' 'readmission_30' 'hyperkalemia_lab_mild_label' 'hyperkalemia_lab_moderate_label' 'hyperkalemia_lab_severe_label' 'hyperkalemia_lab_abnormal_label' 'hypoglycemia_lab_mild_label' 'hypoglycemia_lab_moderate_label' 'hypoglycemia_lab_severe_label' 'hypoglycemia_lab_abnormal_label' 'neutropenia_lab_mild_label' 'neutropenia_lab_moderate_label' 'neutropenia_lab_severe_label' 'hyponatremia_lab_mild_label' 'hyponatremia_lab_moderate_label' 'hyponatremia_lab_severe_label' 'hyponatremia_lab_abnormal_label' 'aki_lab_aki1_label' 'aki_lab_aki2_label' 'aki_lab_aki3_label' 'aki_lab_abnormal_label' 'anemia_lab_mild_label' 'anemia_lab_moderate_label' 'anemia_lab_severe_label' 'anemia_lab_abnormal_label' 'thrombocytopenia_lab_mild_label' 'thrombocytopenia_lab_moderate_label' 'thrombocytopenia_lab_severe_label' 'thrombocytopenia_lab_abnormal_label')
 N_BOOT=1000
@@ -47,6 +47,66 @@ function pipe {
    # Training LR models
    # executes $N_TASK jobs in parallel
 	echo "TRAINING MODELS..."
+		local k=0
+	for (( ij=0; ij<$N_COHORTS; ij++ )); do
+		for (( g=0; g<$N_GROUPS; g++)); do
+			for (( t=0; t<$N_TASKS; t++ )); do
+					python -u train_count.py \
+						--task=${TASKS[$t]} \
+						--model="lr" \
+						--cohort_type=${COHORT_TYPES[$ij]} \
+						--feat_group=${FEAT_GROUPS[$g]} \
+						--bin_path="$1" \
+						--cohort_path="$2" \
+						--hparam_path="$3" \
+						--model_path="$4" \
+						--results_path="$5" #\
+					let k+=1
+					[[ $((k%N_TASKS)) -eq 0 ]] && wait
+	        done
+		done
+	done
+	
+	echo "FINETUNING MODELS..."
+	# finetune models
+	# executes $N_TASK jobs in parallel
+	local k=0
+	for (( t=0; t<$N_TASKS; t++ )); do
+		python -u finetune_lr.py \
+			   --task=${TASKS[$t]} \
+			   --bin_path="$1" \
+			   --cohort_path="$2" \
+			   --hparam_path="$3" \
+			   --model_path="$4" \
+			   --result_path="$5" #\
+		let k+=1
+		[[ $((k%N_TASKS)) -eq 0 ]] && wait
+	 done
+	
+	echo "EVALUATING MODELS..."
+	# evaluate models
+	# executes $N_TASK jobs in parallel
+	local k=0
+	for (( m=0; m<$N_MODELS; m++)); do
+		for (( t=0; t<$N_TASKS; t++ )); do
+			for (( ij=0; ij<$N_COHORTS; ij++ )); do
+				python -u test_lr.py \
+					   --task=${TASKS[$t]} \
+					   --model=${MODELS[$m]} \
+					   --cohort_type=${COHORT_TYPES[$ij]} \
+					   --bin_path="$1" \
+					   --cohort_path="$2" \
+					   --hparam_path="$3" \
+					   --model_path="$4" \
+					   --result_path="$5" #\
+				let k+=1
+				[[ $((k%N_TASKS)) -eq 0 ]] && wait
+			done
+		done
+	done
+	
+	echo "CONSTRAINED MODELS"
+	echo "TRAINING MODELS..."
 	local k=0
 	for (( ij=0; ij<$N_COHORTS; ij++ )); do
 		for (( g=0; g<$N_GROUPS; g++)); do
@@ -54,6 +114,7 @@ function pipe {
 				for ((p=0; p <$N_PERCENTS; p++)) do
 					python -u train_lr.py \
 						--task=${TASKS[$t]} \
+						--model="lr" \
 						--cohort_type=${COHORT_TYPES[$ij]} \
 						--feat_group=${FEAT_GROUPS[$g]} \
 						--constrain="true"\
@@ -70,32 +131,33 @@ function pipe {
 		done
 	done
 
-#	echo "FINETUNING MODELS..."
-#	# finetune models
-#	# executes $N_TASK jobs in parallel
-#	local k=0
-#	for (( t=0; t<$N_TASKS; t++ )); do
-#		python -u finetune_lr.py \
-#			   --task=${TASKS[$t]} \
-#			   --bin_path="$1" \
-#			   --cohort_path="$2" \
-#			   --hparam_path="$3" \
-#			   --model_path="$4" \
-#			   --result_path="$5" #\
-#		let k+=1
-#		[[ $((k%N_TASKS)) -eq 0 ]] && wait
-#	 done
+	echo "FINETUNING MODELS..."
+	# finetune models
+	# executes $N_TASK jobs in parallel
+	local k=0
+	for (( t=0; t<$N_TASKS; t++ )); do
+		python -u finetune_lr.py \
+			   --task=${TASKS[$t]} \
+			   --bin_path="$1" \
+			   --cohort_path="$2" \
+			   --hparam_path="$3" \
+			   --model_path="$4" \
+			   --result_path="$5" #\
+		let k+=1
+		[[ $((k%N_TASKS)) -eq 0 ]] && wait
+	 done
 	
-    echo "EVALUATING MODELS..."
-    # evaluate models
-    # executes $N_TASK jobs in parallel
-    local k=0
+	echo "EVALUATING MODELS..."
+	# evaluate models
+	# executes $N_TASK jobs in parallel
+	local k=0
 	for (( m=0; m<$N_MODELS; m++)); do
 		for (( t=0; t<$N_TASKS; t++ )); do
 			for ((p=0; p <$N_PERCENTS; p++)) do
 				python -u test_lr.py \
 					   --task=${TASKS[$t]} \
 					   --model=${MODELS[$m]} \
+					   --cohort_type="pediatric" \
 					   --constrain="true"\
 					   --percent=${PERCENTS[$p]} \
 					   --bin_path="$1" \
@@ -119,7 +181,7 @@ c=0
         
 pipe "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/bin_features" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/data/cohort" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/hyperparams" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/models" "/labs/shahlab/projects/jlemmon/transfer_learning/experiments/artifacts/results"  &
 
-let c+=1
+# let c+=1
 [[ $((c%10)) -eq 0 ]] && wait
 
 

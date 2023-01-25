@@ -199,27 +199,6 @@ def split_cohort(
 			# remove re-admissions on the same day
 			cohort.loc[cohort['readmission_window']==0,f'{task}_fold_id']='ignore'
 			cohort.loc[cohort['readmission_window']==0,f'{task}']= np.nan
-
-		# if task == 'aki1_label':
-		# 	# remove aki1 before midnight
-		# 	cohort.loc[cohort['aki1_creatinine_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-		# 	cohort.loc[cohort['aki1_creatinine_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-		# if task == 'aki2_label':
-		# 	# remove aki2 before midnight
-		# 	cohort.loc[cohort['aki2_creatinine_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-		# 	cohort.loc[cohort['aki2_creatinine_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-		# if task == 'hg_label':
-		# 	# remove hg before midnight
-		# 	cohort.loc[cohort['hg_glucose_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-		# 	cohort.loc[cohort['hg_glucose_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-		# if task == 'np_500_label':
-		# 	# remove np_500 before midnight
-		# 	cohort.loc[cohort['np_500_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-		# 	cohort.loc[cohort['np_500_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
-		# if task == 'np_1000_label':
-		# 	# remove np_500 before midnight
-		# 	cohort.loc[cohort['np_1000_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'
-		# 	cohort.loc[cohort['np_1000_neutrophils_time']<=cohort['admit_date_midnight'],f'{task}']=np.nan
 		elif task == 'sepsis':
 			# remove sepsis before midnight
 			cohort.loc[cohort['sepsis_index_date']<=cohort['admit_date_midnight'],f'{task}_fold_id']='ignore'

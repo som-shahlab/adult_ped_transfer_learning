@@ -15,7 +15,15 @@ source activate /labs/shahlab/envs/jlemmon/tl
 
 cd /labs/shahlab/projects/jlemmon/transfer_learning/experiments/scripts
 
-python clmbr_adapter.py --eval_cohort 'ped'
+python clmbr_adapter.py --eval_cohort 'ad' --overwrite 'true'
+python clmbr_adapter.py --eval_cohort 'ped' --overwrite 'true'
+python clmbr_adapter.py --train_cohort 'ped' --eval_cohort 'ped' --overwrite 'true'
 
+PERCENTS=(5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95)
+N_PERCENTS=${#PERCENTS[@]}
+
+for ((p=0; p <$N_PERCENTS; p++)) do
+	python clmbr_adapter.py --constrain 'true' --train_cohort 'constrain' --eval_cohort 'ped' --overwrite 'true' --percent ${PERCENTS[$p]}
+done
 echo "DONE"
 

@@ -137,7 +137,6 @@ def get_data(features_fpath, ri=False):
 	"""
 	grab data
 	"""
-
 	features=pickle.load(gzip.open(os.path.join(features_fpath,"features.gz"),'rb'))
 	prediction_ids=pickle.load(gzip.open(os.path.join(features_fpath,"prediction_ids.gz"),'rb'))
 	labels=pickle.load(gzip.open(os.path.join(features_fpath,"labels.gz"),'rb'))
@@ -201,9 +200,6 @@ def get_xy(task, features, labels, prediction_ids, cohort, cohort_group, return_
 		prediction_id_test = prediction_ids[task]['test']
 		X_test = features[task if task == 'readmission_30' else 'all']['test']
 		y_test = np.array(tst_c[task].values).astype(np.int32)
-
-		if task == 'readmission_30':
-			return (X_test,y_test,prediction_id_test)
 		
 		tst_idx = get_feat_idx(prediction_id_test, tst_c['prediction_id'])
 		return (X_test[tst_idx],y_test,prediction_id_test[tst_idx])
@@ -272,13 +268,11 @@ cohort_df = cohort_df.query('pediatric_age_group!="term neonatal"')
 tasks =['hospital_mortality','sepsis','LOS_7','readmission_30','hyperkalemia_lab_mild_label','hyperkalemia_lab_moderate_label','hyperkalemia_lab_severe_label','hyperkalemia_lab_abnormal_label','hypoglycemia_lab_mild_label','hypoglycemia_lab_moderate_label','hypoglycemia_lab_severe_label','hypoglycemia_lab_abnormal_label','neutropenia_lab_mild_label','neutropenia_lab_moderate_label','neutropenia_lab_severe_label','hyponatremia_lab_mild_label','hyponatremia_lab_moderate_label','hyponatremia_lab_severe_label','hyponatremia_lab_abnormal_label','aki_lab_aki1_label','aki_lab_aki2_label','aki_lab_aki3_label','aki_lab_abnormal_label','anemia_lab_mild_label','anemia_lab_moderate_label','anemia_lab_severe_label','anemia_lab_abnormal_label','thrombocytopenia_lab_mild_label','thrombocytopenia_lab_moderate_label','thrombocytopenia_lab_severe_label','thrombocytopenia_lab_abnormal_label']
 
 # initialize evaluator
-evaluator = StandardEvaluator()
+evaluator = StandardEvaluator(metrics=['auc','auprc','auprc_c','loss_bce','ace_abs_logistic_logit'])
 
-for cohort in ['all', 'ad']:#['all', 'ad', 'ped']:
+for cohort in ['ad', 'ped', 'mix']:
 	print(f'Trained on cohort {cohort}')
 	for train_type in ['pretrained', 'finetuned']:
-		if train_type == 'pretrained' and args.constrain:
-			continue
 		train_feat_dir=os.path.join(
 			args.artifacts_fpath,
 			train_type,
@@ -287,7 +281,7 @@ for cohort in ['all', 'ad']:#['all', 'ad', 'ped']:
 			f"gru_sz_800_do_0_lr_{args.lr}_l2_0",
 			args.train_cohort if args.train_cohort != 'constrain' else f'constrain_{args.percent}'
 		)
-
+		print(train_feat_dir)
 		test_feat_dir=os.path.join(
 			args.artifacts_fpath,
 			train_type,
@@ -296,6 +290,7 @@ for cohort in ['all', 'ad']:#['all', 'ad', 'ped']:
 			f"gru_sz_800_do_0_lr_{args.lr}_l2_0",
 			args.eval_cohort
 		)
+		print(test_feat_dir)
 		# get data
 		if args.train_cohort == 'constrain':
 			tr_features,tr_labels,tr_prediction_ids,tr_ehr_ml_patient_ids,tr_day_indices, tr_row_indices = get_data(train_feat_dir, True)
@@ -305,8 +300,12 @@ for cohort in ['all', 'ad']:#['all', 'ad', 'ped']:
 		tst_features,tst_labels,tst_prediction_ids,tst_ehr_ml_patient_ids,tst_day_indices = get_data(test_feat_dir)
 		print(f'{train_type}')
 		for task in tasks:
-			adapter_save_path = f'{args.adapter_path}/adapters/{train_type}/{cohort}/{task}/tr_{args.train_cohort}_tst_{args.eval_cohort}/gru_sz_800_do_0_lr_{args.lr}_l2_0'
-			result_save_path = f'{args.results_path}/{train_type}/{cohort}/{task}/tr_{args.train_cohort}_tst_{args.eval_cohort}/gru_sz_800_do_0_lr_{args.lr}_l2_0'
+			if args.train_cohort == 'constrain':
+				adapter_save_path = f'{args.adapter_path}/adapters/{train_type}/{cohort}/{task}/tr_{args.train_cohort}_tst_{args.eval_cohort}/gru_sz_800_do_0_lr_{args.lr}_l2_0/constrain_{args.percent}'
+				result_save_path = f'{args.results_path}/{train_type}/{cohort}/{task}/tr_{args.train_cohort}_tst_{args.eval_cohort}/gru_sz_800_do_0_lr_{args.lr}_l2_0/constrain_{args.percent}'
+			else:
+				adapter_save_path = f'{args.adapter_path}/adapters/{train_type}/{cohort}/{task}/tr_{args.train_cohort}_tst_{args.eval_cohort}/gru_sz_800_do_0_lr_{args.lr}_l2_0'
+				result_save_path = f'{args.results_path}/{train_type}/{cohort}/{task}/tr_{args.train_cohort}_tst_{args.eval_cohort}/gru_sz_800_do_0_lr_{args.lr}_l2_0'
 			os.makedirs(f"{adapter_save_path}",exist_ok=True)
 			os.makedirs(f"{result_save_path}",exist_ok=True)
 			print(f"task: {task}")
@@ -340,6 +339,8 @@ for cohort in ['all', 'ad']:#['all', 'ad', 'ped']:
 				return_test=True
 			)
 			
+			print(X_test.shape)
+			print(len(y_test))
 			best_loss = np.inf
 			best_adapter = None
 			for c in C:

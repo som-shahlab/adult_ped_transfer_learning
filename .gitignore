@@ -10,3 +10,8 @@ experiments/scripts/dask-worker-space
 experiments/logs/*
 experiments/data/cohort/
 *.parquet
+**/__pycache__
+experiments/notebooks/llg
+experiments/data
+experiments/artifacts
+experiments/scripts/deprecated

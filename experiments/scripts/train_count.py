@@ -5,6 +5,8 @@ import os
 import argparse
 import pickle
 import yaml
+from lightgbm import LGBMClassifier as gbm
+from scipy.sparse import csr_matrix as csr
 from sklearn.linear_model import SGDClassifier, LogisticRegression
 from sklearn.model_selection import ParameterGrid
 from sklearn.metrics import log_loss
@@ -62,15 +64,15 @@ parser.add_argument(
 )
 
 parser.add_argument(
-	'--verbose',
-	type=int,
-	default=0
-)
-
-parser.add_argument(
 	'--model',
 	type=str,
 	default='lr'
+)
+
+parser.add_argument(
+	'--verbose',
+	type=int,
+	default=0
 )
 
 parser.add_argument(
@@ -135,27 +137,42 @@ def load_data(args):
 	return train_feats, val_feats, cohort
 
 def get_model(args, hp):
-	return LogisticRegression(
-					random_state = hp['random_state'], 
-					C = hp['C'], 
-					max_iter = 10000,
-					warm_start = True 
-	)
+	if args.model == 'lr':
+		return LogisticRegression(
+						random_state = hp['random_state'], 
+						C = hp['C'], 
+						max_iter = 10000,
+						warm_start = True 
+		)
+	elif args.model == 'gbm':
+		return gbm(
+			n_jobs=args.n_jobs, 
+			**hp
+		)
 
 def train_model(args, hp, train_X, train_labels, val_X, val_labels):
 	print('Initialized model with hyperparams:')
 	print(hp)
-	if args.constrain:
-		model_save_path = f'{args.model_path}/constrain/{args.model}/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
-	else:
-		model_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
+	if args.model == 'lr':
+		if args.constrain:
+			model_save_path = f'{args.model_path}/constrain/lr/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
+		else:
+			model_save_path = f'{args.model_path}/{args.cohort_type}/lr/{args.task}/{args.feat_group}_feats/lr_{hp["penalty"]}_{hp["C"]}'
+	elif args.model == 'gbm':
+		if args.constrain:
+			model_save_path = f'{args.model_path}/constrain/gbm/{args.task}/{args.feat_group}_feats/gbm_{hp["learning_rate"]}_nl_{hp["num_leaves"]}_bt_{hp["boosting_type"]}'
+		else:
+			model_save_path = f'{args.model_path}/{args.cohort_type}/gbm/{args.task}/{args.feat_group}_feats/gbm_{hp["learning_rate"]}_nl_{hp["num_leaves"]}_bt_{hp["boosting_type"]}'
+	
 	os.makedirs(model_save_path,exist_ok=True)
-
 	model = get_model(args, hp)
 
 	print('Training...')
-	model.fit(train_X, list(train_labels[args.task]))
-
+	if args.model == 'lr':
+		model.fit(train_X, list(train_labels[args.task]))
+	elif args.model == 'gbm':
+		model.fit(train_X, np.array(list(train_labels[args.task])).astype(np.float32))
+		
 	with open(f'{model_save_path}/model.pkl', 'wb') as pkl_file:
 		pickle.dump(model, pkl_file)
 
@@ -196,10 +213,10 @@ if __name__ == '__main__':
 	train_data, val_data, cohort = load_data(args)
 	print(f'Training models for {args.task} task...')
 	train_labels, val_labels = get_labels(args, args.task, cohort)
-	train_X = train_data[list(train_labels['train_row_idx'])]
-	val_X = val_data[list(val_labels['val_row_idx'])]
+	train_X = train_data[list(train_labels['train_row_idx'])].astype(np.float32)
+	val_X = val_data[list(val_labels['val_row_idx'])].astype(np.float32)
 	if args.constrain:
-		best_save_path = f'{args.model_path}/constrain/{args.model}/{args.task}/{args.feat_group}_feats_{args.percent}/best'
+		best_save_path = f'{args.model_path}/constrain/{args.model/{args.task}/{args.feat_group}_feats_{args.percent}/best'
 	else:
 		best_save_path = f'{args.model_path}/{args.cohort_type}/{args.model}/{args.task}/{args.feat_group}_feats/best'
 	os.makedirs(best_save_path, exist_ok=True)

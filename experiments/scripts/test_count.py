@@ -15,6 +15,7 @@ import scipy.sparse as sp
 from scipy.sparse import csr_matrix as csr
 from sklearn.linear_model import LogisticRegression as lr
 from sklearn.model_selection import ParameterGrid
+from lightgbm import LGBMClassifier as gbm
 
 from prediction_utils.util import str2bool
 from prediction_utils.pytorch_utils.metrics import StandardEvaluator
@@ -170,14 +171,20 @@ def eval_model(args, task, model_path, result_path, X_test, y_test, hp):
 		'prediction_id':list(test_labels['prediction_id'].values)
 	})
 	
+	df.reset_index(drop=True).to_csv(f"{result_path}/preds.csv", index=False)
+	
 	df_test = evaluator.evaluate(
 		df,
 		strata_vars='test_group',
 		label_var='labels',
 		pred_prob_var='pred_probs'
 	)
-	
-	df_test['C'] = hp['C']
+	if args.model == 'lr':
+		df_test['C'] = hp['C']
+	elif args.model == 'gbm':
+		df_test['lr'] = hp['learning_rate']
+		df_test['num_leaves'] = hp['num_leaves']
+		df_test['boosting_type'] = hp['boosting_type']
 	df_test['model'] = args.model
 	os.makedirs(f"{result_path}", exist_ok=True)
 	df_test.reset_index(drop=True).to_csv(f"{result_path}/test_eval.csv", index=False)
@@ -210,8 +217,6 @@ if args.constrain:
 else:
 	train_cohorts = ['pediatric', 'adult']
 for tr_cohort_type in train_cohorts:
-	if args.model == 'lr_ft' and tr_cohort_type == 'pediatric':
-		continue
 	print(f"trained in cohort type: {tr_cohort_type}")
 	for feat_group in ['shared']:
 		print(f"feature set: {feat_group}")

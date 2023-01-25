@@ -66,6 +66,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+	"--use_pretrained",
+	type = str2bool,
+	default = "false",
+	help = "whether to use a pretrained model to generate constrained feats",
+)
+
+parser.add_argument(
 	"--overwrite",
 	type = str2bool,
 	default = "false",
@@ -94,7 +101,7 @@ if __name__ == "__main__":
 
 
 	lr = '0.0001'
-	for percent in list(range(10,100,5)):
+	for percent in list(range(5,100,5)):
 		
 		cohort = read_file(
 			os.path.join(
@@ -104,15 +111,23 @@ if __name__ == "__main__":
 			engine='pyarrow'
 		)
 		cohort = cohort[~cohort['person_id'].isin([86281596,72463221, 31542622, 30046470])]
-
-		clmbr_model_path=os.path.join(
+		if args.use_pretrained:
+			clmbr_model_path=os.path.join(
 			args.artifacts_fpath,
-			args.train_type,
+			"pretrained",
 			"models",
-			args.cohort_id,
-			f"gru_sz_800_do_0_lr_{lr}_l2_0",
-			f"finetune_model_constrain_{percent}"
+			"ad",
+			f"gru_sz_800_do_0_lr_{lr}_l2_0"
 		)
+		else:
+			clmbr_model_path=os.path.join(
+				args.artifacts_fpath,
+				args.train_type,
+				"models",
+				args.cohort_id,
+				f"gru_sz_800_do_0_lr_{lr}_l2_0",
+				f"finetune_model_constrain_{percent}"
+			)
 		
 		print(clmbr_model_path)
 		clmbr_model = ehr_ml.clmbr.CLMBR.from_pretrained(clmbr_model_path, args.device)
@@ -203,7 +218,6 @@ if __name__ == "__main__":
 							df = c_df.query(
 								f"{task}_fold_id==['test']"
 							).reset_index()
-					# print(df)
 					
 					if task == 'hospital_mortality':
 						ehr_ml_patient_id_list, day_indices_list = convert_patient_data( 

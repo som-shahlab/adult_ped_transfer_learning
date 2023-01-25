@@ -47,7 +47,7 @@ parser.add_argument(
 parser.add_argument(
 	"--cohort_id",
 	type = str,
-	default = "all",
+	default = "ad",
 	help = "cohort clmbr model was pretrained on"
 )
 
@@ -64,7 +64,6 @@ parser.add_argument(
 	default='cuda:0',
 	help='CUDA device',
 )
-
 
 parser.add_argument(
 	"--overwrite",
@@ -94,25 +93,17 @@ if __name__ == "__main__":
 
 	tasks = ['hospital_mortality','sepsis','LOS_7','readmission_30','hyperkalemia_lab_mild_label','hyperkalemia_lab_moderate_label','hyperkalemia_lab_severe_label','hyperkalemia_lab_abnormal_label','hypoglycemia_lab_mild_label','hypoglycemia_lab_moderate_label','hypoglycemia_lab_severe_label','hypoglycemia_lab_abnormal_label','neutropenia_lab_mild_label','neutropenia_lab_moderate_label','neutropenia_lab_severe_label','hyponatremia_lab_mild_label','hyponatremia_lab_moderate_label','hyponatremia_lab_severe_label','hyponatremia_lab_abnormal_label','aki_lab_aki1_label','aki_lab_aki2_label','aki_lab_aki3_label','aki_lab_abnormal_label','anemia_lab_mild_label','anemia_lab_moderate_label','anemia_lab_severe_label','anemia_lab_abnormal_label','thrombocytopenia_lab_mild_label','thrombocytopenia_lab_moderate_label','thrombocytopenia_lab_severe_label','thrombocytopenia_lab_abnormal_label']
 
-	if args.constrain:
-		cohort = read_file(
+
+	cohort = read_file(
 		os.path.join(
 			args.cohort_path,
-			"cohort_split_no_nb_constrain.parquet"
+			"cohort_split_no_nb.parquet"
 		),
 		engine='pyarrow'
 	)
-	else:
-		cohort = read_file(
-			os.path.join(
-				args.cohort_path,
-				"cohort_split_no_nb.parquet"
-			),
-			engine='pyarrow'
-		)
 	cohort = cohort[~cohort['person_id'].isin([86281596,72463221, 31542622, 30046470])]
-
-	for lr in ['0.0001']:#, '1e-5']:
+	cohort = cohort.query('pediatric_age_group!="term neonatal"')
+	for lr in ['0.0001']:#,'0.0001', '1e-5']:
 
 		clmbr_model_path=os.path.join(
 			args.artifacts_fpath,
@@ -120,7 +111,7 @@ if __name__ == "__main__":
 			"models",
 			args.cohort_id,
 			f"gru_sz_800_do_0_lr_{lr}_l2_0",
-			"" if args.train_type == 'pretrained' else ("finetune_model_constrain" if args.constrain else "finetune_model")
+			"" if args.train_type == 'pretrained' else "finetune_model"
 		)
 		
 		print(clmbr_model_path)
@@ -141,7 +132,6 @@ if __name__ == "__main__":
 			else:
 				c_df = cohort.query('adult_at_admission==1')
 			
-			print(c_df)
 			# check if files exist
 			if all([
 				os.path.exists(f"{save_dir}/{f}") for f in 
@@ -214,7 +204,6 @@ if __name__ == "__main__":
 								df = c_df.query(
 									f"{task}_fold_id==['test']"
 								).reset_index()
-						print(df)
 						ehr_ml_patient_ids[task][fold], day_indices[task][fold] = convert_patient_data( 
 							ehr_ml_extract_dir, 
 							df['person_id'], 

@@ -62,42 +62,23 @@ function pipe {
 			done
 		done
 	done
-
-	echo "FINETUNING MODELS..."
-	# finetune models
-	# executes $N_TASK jobs in parallel
-	local k=0
-	for (( t=0; t<$N_TASKS; t++ )); do
-		python -u finetune_gbm.py \
-			   --task=${TASKS[$t]} \
-			   --bin_path="$1" \
-			   --cohort_path="$2" \
-			   --hparam_path="$3" \
-			   --model_path="$4" \
-			   --result_path="$5" #\
-		let k+=1
-		[[ $((k%N_TASKS)) -eq 0 ]] && wait
-	 done
 	 
 	echo "EVALUATING MODELS..."
 	#evaluate models
 	#executes $N_TASK jobs in parallel
 	local k=0
-	for (( m=0; m<$N_MODELS; m++)); do
-		for (( ij=0; ij<$N_COHORTS; ij++ )); do
-			for (( t=0; t<$N_TASKS; t++ )); do
-				python -u test_gbm.py \
-					   --task=${TASKS[$t]} \
-					   --model=${MODELS[$m]} \
-					   --cohort_type=${COHORT_TYPES[$ij]} \
-					   --bin_path="$1" \
-					   --cohort_path="$2" \
-					   --hparam_path="$3" \
-					   --model_path="$4" \
-					   --result_path="$5" #\
-				let k+=1
-				[[ $((k%N_TASKS)) -eq 0 ]] && wait
-			done
+	for (( ij=0; ij<$N_COHORTS; ij++ )); do
+		for (( t=0; t<$N_TASKS; t++ )); do
+			python -u test_gbm.py \
+				   --task=${TASKS[$t]} \
+				   --cohort_type=${COHORT_TYPES[$ij]} \
+				   --bin_path="$1" \
+				   --cohort_path="$2" \
+				   --hparam_path="$3" \
+				   --model_path="$4" \
+				   --result_path="$5" #\
+			let k+=1
+			[[ $((k%N_TASKS)) -eq 0 ]] && wait
 		done
 	done
 

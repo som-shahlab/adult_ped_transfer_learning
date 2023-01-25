@@ -1,0 +1,16 @@
+m1,$Count-LR_{Target}$,$CLMBR_{Target}-LR_{Target}$,$CLMBR_{Source}-LR_{Source}$,$CLMBR_{Source}-LR_{Target}$,$CLMBR_{FT-Pre}-LR_{Target}$,metric
+$Count-LR_{Target}$,,0.001,0.001,0.001,0.001,auc
+$CLMBR_{Target}-LR_{Target}$,0.001,,0.966,0.005,0.002,auc
+$CLMBR_{Source}-LR_{Source}$,0.001,0.966,,0.014,0.01,auc
+$CLMBR_{Source}-LR_{Target}$,0.001,0.005,0.014,,0.014,auc
+$CLMBR_{FT-Pre}-LR_{Target}$,0.001,0.002,0.01,0.014,,auc
+$Count-LR_{Target}$,,0.175,0.067,0.007,0.002,auprc
+$CLMBR_{Target}-LR_{Target}$,0.175,,0.465,0.005,0.001,auprc
+$CLMBR_{Source}-LR_{Source}$,0.067,0.465,,0.147,0.007,auprc
+$CLMBR_{Source}-LR_{Target}$,0.007,0.005,0.147,,0.005,auprc
+$CLMBR_{FT-Pre}-LR_{Target}$,0.002,0.001,0.007,0.005,,auprc
+$Count-LR_{Target}$,,0.765,0.067,0.577,0.7,ace_abs_logistic_logit
+$CLMBR_{Target}-LR_{Target}$,0.765,,0.102,0.966,0.577,ace_abs_logistic_logit
+$CLMBR_{Source}-LR_{Source}$,0.067,0.102,,0.102,0.102,ace_abs_logistic_logit
+$CLMBR_{Source}-LR_{Target}$,0.577,0.966,0.102,,0.765,ace_abs_logistic_logit
+$CLMBR_{FT-Pre}-LR_{Target}$,0.7,0.577,0.102,0.765,,ace_abs_logistic_logit

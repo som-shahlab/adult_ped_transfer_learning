@@ -2,6 +2,7 @@ learning_rate:
 - 0.1
 - 0.2
 - 0.01
+- 0.02
 num_leaves:
 - 100
 - 300
