@@ -33,6 +33,7 @@ parser.add_argument(
 parser.add_argument(
     "--no_has_birth_datetime", dest="has_birth_datetime", action="store_false"
 )
+parser.add_argument("--df_name", type=str, default="cohort")
 parser.add_argument(
     "--data_path",
     type=str,
@@ -99,5 +100,5 @@ if __name__ == "__main__":
 	cohort_path = os.path.join(args.data_path, "cohort")
 	os.makedirs(cohort_path, exist_ok=True)
 	cohort_df.to_parquet(
-		os.path.join(cohort_path, "cohort.parquet"), engine="pyarrow", index=False,
+		os.path.join(cohort_path, f"{args.df_name}.parquet"), engine="pyarrow", index=False,
 	)

@@ -13,7 +13,7 @@ cd /local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/scripts
 #mkdir -p ../logs/clmbr_pretrain
 
 ENCODERS=("gru")
-PT_GROUPS=("ad") # ("all" "ad")
+PT_GROUPS=("ad_no_ped") # ("all" "ad")
 LEARN_RATES=(0.0001) #(0.0001 0.00001)
 L2_VALS=("0") #(0 0.01)
 PERCENTS=(5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95)
@@ -21,7 +21,7 @@ TRAIN_OVERWRITE='False'
 FEATURIZE_OVERWRITE='False'
 EARLY_STOPPING='True'
 
-GPU="2"
+GPU="7"
 SIZE=800
 EPOCHS=100
 BATCH_SIZE=4000
@@ -62,7 +62,7 @@ for (( t=0; t<$N_GROUPS; t++ )); do
 	done
 done
 
-python -u featurize_clmbr.py  --train_type="finetuned" --cohort_id="ad" --overwrite="true" \
+python -u featurize_clmbr.py  --train_type="finetuned" --cohort_id="ad_no_ped" --overwrite="true" \
 
 for (( t=0; t<$N_GROUPS; t++ )); do
     for (( i=0; i<$N_ENCODERS; i++ )); do
@@ -87,5 +87,5 @@ for (( t=0; t<$N_GROUPS; t++ )); do
 	done
 done
 
-python -u featurize_clmbr_constrain.py --train_type="pretrained" --cohort_id="ad" --overwrite="true" --use_pretrained="true" \
+python -u featurize_clmbr_constrain.py --train_type="pretrained" --cohort_id="ad_no_ped" --overwrite="true" --use_pretrained="true" \
 

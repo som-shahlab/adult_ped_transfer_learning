@@ -4,16 +4,16 @@ import os
 
 from sklearn.metrics._base import _check_pos_label_consistency
 from sklearn.utils import (
-    column_or_1d,
-    indexable,
-    check_matplotlib_support,
+	column_or_1d,
+	indexable,
+	check_matplotlib_support,
 )
 from sklearn.utils.validation import (
-    _check_fit_params,
-    _check_sample_weight,
-    _num_samples,
-    check_consistent_length,
-    check_is_fitted,
+	_check_fit_params,
+	_check_sample_weight,
+	_num_samples,
+	check_consistent_length,
+	check_is_fitted,
 )
 
 import matplotlib.pyplot as plt
@@ -596,3 +596,125 @@ def load_ece_results():
 		plot_dict['e'] = pd.concat((plot_dict['e'],df))
 
 	return plot_dict
+
+def load_predictions(sensitivity_analysis=False):
+	tasks = [
+		'hospital_mortality', 'sepsis', 'LOS_7','readmission_30','aki_lab_aki3_label',
+		'hyperkalemia_lab_severe_label','hypoglycemia_lab_severe_label','hyponatremia_lab_severe_label',
+		'neutropenia_lab_severe_label','anemia_lab_severe_label','thrombocytopenia_lab_severe_label'
+	]
+
+	if sensitivity_analysis:
+		tasks = [
+			'aki_lab_aki1_label',
+			'hyperkalemia_lab_mild_label','hypoglycemia_lab_mild_label','hyponatremia_lab_mild_label',
+			'neutropenia_lab_mild_label','anemia_lab_mild_label','thrombocytopenia_lab_mild_label'
+		]
+
+
+	model_path = '/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/models'
+	results_path = '/local-scratch/nigam/projects/jlemmon/transfer_learning/experiments/artifacts/results'
+
+	feat_groups = ['shared']
+	cohort_types = ['pediatric', 'adult']
+	pred_dict = {}
+
+	label_dict = {'adult':None, 'pediatric':None}
+
+	# Get baseline model
+	pred_dict['lr'] = {'adult':{'adult':None, 'pediatric':None}, 'pediatric':{'adult':None, 'pediatric':None}}
+
+	for trc in ['adult', 'pediatric']:
+		for tstc in ['pediatric', 'adult']:
+			lr_df = pd.DataFrame()
+			for i, task in enumerate(tasks):
+				df = pd.read_csv(f'{results_path}/lr/{task}/tr_{trc}_tst_{tstc}/shared_feats/best/preds.csv')[['prediction_id', 'pred_probs', 'labels']]
+				df = df.rename(columns={'pred_probs':f'{task}', 'labels':f'{task}_labels'})
+				if i == 0:
+					lr_df = df[['prediction_id', f'{task}']]
+					label_df = df[['prediction_id', f'{task}_labels']]
+				else:
+					lr_df = pd.merge(lr_df,df[['prediction_id', f'{task}']], on='prediction_id', how='outer')
+					label_df = pd.merge(label_df,df[['prediction_id', f'{task}_labels']], on='prediction_id', how='outer')
+			pred_dict['lr'][trc][tstc] = lr_df
+			label_dict[tstc] = label_df
+
+
+	pred_dict['gbm'] = {'adult':{'adult':None, 'pediatric':None}, 'pediatric':{'adult':None, 'pediatric':None}}            
+
+	for trc in ['pediatric']:
+		for tstc in ['pediatric']:
+			for fg in feat_groups:
+				lr_df = pd.DataFrame()
+				for i, task in enumerate(tasks):
+					df = pd.read_csv(f'{results_path}/gbm/{task}/tr_{trc}_tst_{tstc}/shared_feats/best/preds.csv')[['prediction_id', 'pred_probs']]
+					df = df.rename(columns={'pred_probs':f'{task}'})
+					if i == 0:
+						gbm_df = df
+					else:
+						gbm_df = pd.merge(gbm_df,df, on='prediction_id', how='outer')
+				pred_dict['gbm'][trc][tstc] = lr_df
+
+	pred_dict['clmbr_ped'] = {'ad':{'ad':None, 'ped':None}, 'ped':{'ad':None, 'ad':None}}
+
+	for trc in ['ped']:
+		for tstc in ['ped']:
+			for fg in feat_groups:
+				lr_df = pd.DataFrame()
+				for i, task in enumerate(tasks):
+					df = pd.read_csv(f'{results_path}/clmbr/pretrained/ped/{task}/tr_{trc}_tst_{tstc}/gru_sz_800_do_0_lr_0.0001_l2_0/preds.csv')[['prediction_id', 'pred_probs']]
+					df = df.rename(columns={'pred_probs':f'{task}'})
+					if i == 0:
+						clmbr_df = df
+					else:
+						clmbr_df = pd.merge(clmbr_df,df, on='prediction_id', how='outer')
+				pred_dict['clmbr_ped'][trc][tstc] = clmbr_df
+
+	pred_dict['clmbr_ad'] = {'ad':{'ad':None, 'ped':None}, 'ped':{'ad':None, 'ad':None}}
+
+	for trc in ['ad','ped']:
+		for tstc in ['ad','ped']:
+			if trc == 'ped' and tstc == 'ad':
+				continue
+			for fg in feat_groups:
+				lr_df = pd.DataFrame()
+				for i, task in enumerate(tasks):
+					df = pd.read_csv(f'{results_path}/clmbr/pretrained/ad_no_ped/{task}/tr_{trc}_tst_{tstc}/gru_sz_800_do_0_lr_0.0001_l2_0/preds.csv')[['prediction_id', 'pred_probs']]
+					df = df.rename(columns={'pred_probs':f'{task}'})
+					if i == 0:
+						clmbr_df = df
+					else:
+						clmbr_df = pd.merge(clmbr_df,df, on='prediction_id', how='outer')
+				pred_dict['clmbr_ad'][trc][tstc] = clmbr_df
+
+	pred_dict['clmbr_ft'] = {'ad':{'ad':None, 'ped':None}, 'ped':{'ad':None, 'ad':None}}
+
+	for trc in ['ped']:
+		for tstc in ['ped']:
+			for fg in feat_groups:
+				lr_df = pd.DataFrame()
+				for i, task in enumerate(tasks):
+					df = pd.read_csv(f'{results_path}/clmbr/finetuned/ad_no_ped/{task}/tr_{trc}_tst_{tstc}/gru_sz_800_do_0_lr_0.0001_l2_0/preds.csv')[['prediction_id', 'pred_probs']]
+					df = df.rename(columns={'pred_probs':f'{task}'})
+					if i == 0:
+						clmbr_df = df
+					else:
+						clmbr_df = pd.merge(clmbr_df,df, on='prediction_id', how='outer')
+				pred_dict['clmbr_ft'][trc][tstc] = clmbr_df
+
+	pred_dict['clmbr_mix'] = {'ad':{'ad':None, 'ped':None}, 'ped':{'ad':None, 'ad':None}}
+
+	for trc in ['ped']:
+		for tstc in ['ped']:
+			for fg in feat_groups:
+				lr_df = pd.DataFrame()
+				for i, task in enumerate(tasks):
+					df = pd.read_csv(f'{results_path}/clmbr/pretrained/mix/{task}/tr_{trc}_tst_{tstc}/gru_sz_800_do_0_lr_0.0001_l2_0/preds.csv')[['prediction_id', 'pred_probs']]
+					df = df.rename(columns={'pred_probs':f'{task}'})
+					if i == 0:
+						clmbr_df = df
+					else:
+						clmbr_df = pd.merge(clmbr_df,df, on='prediction_id', how='outer')
+				pred_dict['clmbr_mix'][trc][tstc] = clmbr_df
+				
+	return pred_dict
